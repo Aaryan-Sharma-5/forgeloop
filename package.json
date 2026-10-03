@@ -6,11 +6,13 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build && node tests/run.mjs && node tests/patches.test.mjs && node tests/constraints.test.mjs && node tests/generator.test.mjs && node tests/repairer.test.mjs"
+    "test": "npm run build && node tests/run.mjs && node tests/patches.test.mjs && node tests/constraints.test.mjs && node tests/generator.test.mjs && node tests/repairer.test.mjs && node tests/server.test.mjs"
   },
-
 
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4"
   }
 }

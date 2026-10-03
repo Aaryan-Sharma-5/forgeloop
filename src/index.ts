@@ -70,11 +70,48 @@ export {
   type BenchmarkRunnerOptions,
 } from "./ai/benchmark.js";
 
+// Phase 6: Backend Orchestration Server & Protocol
+export {
+  validateClientCommand,
+  type ClientCommand,
+  type ServerEvent,
+  type StartSessionCommand,
+  type SabotageLevelCommand,
+  type RegressPhysicsCommand,
+  type GetSessionCommand,
+  type RunBenchmarkCommand,
+  type SessionStartedEvent,
+  type IntentReceivedEvent,
+  type SpecGeneratedEvent,
+  type LevelGeneratedEvent,
+  type VerificationStartedEvent,
+  type VerificationCompletedEvent,
+  type RepairStartedEvent,
+  type PatchProposedEvent,
+  type PatchAppliedEvent,
+  type RepairCompletedEvent,
+  type SessionCompletedEvent,
+  type ErrorEvent,
+  type CommandValidationResult,
+} from "./server/protocol.js";
+export {
+  ForgeSession,
+  type SessionOptions,
+  type SessionSnapshot,
+  type SessionTerminalState,
+} from "./server/session.js";
+export {
+  ForgeServer,
+  createForgeServer,
+  type ServerOptions,
+} from "./server/server.js";
+
 import { BFSVerifier } from "./verifier/BFSVerifier.js";
 import type { Level, PhysicsConfig } from "./types.js";
 
 export function verifyLevel(level: Level, config?: Partial<PhysicsConfig>) {
   return new BFSVerifier(config).verify(level);
 }
+
 
 
