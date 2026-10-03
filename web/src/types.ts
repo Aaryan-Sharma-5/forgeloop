@@ -171,6 +171,11 @@ export interface RegressPhysicsCommand {
   physicsConfig: Partial<PhysicsConfig>;
 }
 
+export interface RepairSessionCommand {
+  type: "REPAIR_SESSION";
+  sessionId: string;
+}
+
 export interface GetSessionCommand {
   type: "GET_SESSION";
   sessionId: string;
@@ -184,6 +189,7 @@ export type ClientCommand =
   | StartSessionCommand
   | SabotageLevelCommand
   | RegressPhysicsCommand
+  | RepairSessionCommand
   | GetSessionCommand
   | RunBenchmarkCommand;
 

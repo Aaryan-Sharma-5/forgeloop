@@ -2,8 +2,8 @@ import * as http from "node:http";
 import { ForgeSession, type SessionOptions } from "./session.js";
 import { validateClientCommand, type ClientCommand } from "./protocol.js";
 import { runAblationBenchmark } from "../ai/benchmark.js";
-import type { IntentCompilerModel } from "../ai/compiler.js";
-import type { LevelRepairModel } from "../ai/repairer.js";
+import { createGroqCompilerModel, type IntentCompilerModel } from "../ai/compiler.js";
+import { createGroqRepairModel, type LevelRepairModel } from "../ai/repairer.js";
 
 export interface ServerOptions {
   compilerModel?: IntentCompilerModel | undefined;
@@ -22,8 +22,9 @@ export class ForgeServer {
   private repairModel?: LevelRepairModel | undefined;
 
   constructor(options: ServerOptions = {}) {
-    this.compilerModel = options.compilerModel;
-    this.repairModel = options.repairModel;
+    const hasGroqKey = typeof process !== "undefined" && Boolean(process.env?.GROQ_API_KEY);
+    this.compilerModel = options.compilerModel ?? (hasGroqKey ? createGroqCompilerModel() : undefined);
+    this.repairModel = options.repairModel ?? (hasGroqKey ? createGroqRepairModel() : undefined);
   }
 
   public get sessionCount(): number {
@@ -109,6 +110,15 @@ export class ForgeServer {
           return { success: false, error: `Session "${command.sessionId}" not found` };
         }
         const state = await session.regressPhysics(command.physicsConfig);
+        return { success: true, data: state };
+      }
+
+      case "REPAIR_SESSION": {
+        const session = this.getSession(command.sessionId);
+        if (!session) {
+          return { success: false, error: `Session "${command.sessionId}" not found` };
+        }
+        const state = await session.repair();
         return { success: true, data: state };
       }
 
@@ -302,6 +312,24 @@ export class ForgeServer {
       const body = await this.readJsonBody(req);
       const action = body?.action === "CUT_BRIDGE" ? "CUT_BRIDGE" : "DROP_HAZARD";
       const state = await session.sabotage(action, body?.x, body?.y);
+      this.sendJson(res, 200, state);
+      return;
+    }
+
+    // 8. Repair Session
+    const repairMatch = pathname.match(/^\/api\/sessions\/([^/]+)\/repair$/);
+    if (req.method === "POST" && repairMatch) {
+      const sessionId = repairMatch[1];
+      if (!sessionId) {
+        this.sendJson(res, 400, { error: "Missing session ID" });
+        return;
+      }
+      const session = this.getSession(sessionId);
+      if (!session) {
+        this.sendJson(res, 404, { error: `Session "${sessionId}" not found` });
+        return;
+      }
+      const state = await session.repair();
       this.sendJson(res, 200, state);
       return;
     }

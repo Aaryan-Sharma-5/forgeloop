@@ -82,7 +82,14 @@ export const App: React.FC = () => {
   // Handle incoming server events to update state
   const handleServerEvent = useCallback((event: ServerEvent) => {
     setEvents((prev) => {
-      if (prev.some((e) => e.type === event.type && (e as any).timestamp === (event as any).timestamp)) return prev;
+      const isDuplicate = prev.some(
+        (e) =>
+          e.type === event.type &&
+          (e as any).timestamp === (event as any).timestamp &&
+          (e as any).attempt === (event as any).attempt &&
+          (e as any).phase === (event as any).phase
+      );
+      if (isDuplicate) return prev;
       return [...prev, event];
     });
 
@@ -194,6 +201,22 @@ export const App: React.FC = () => {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setErrorMessage(`Sabotage failed: ${msg}`);
+    }
+  };
+
+  // Trigger Autonomous Repair on damaged level
+  const handleRepairSession = async () => {
+    if (!sessionId) return;
+    try {
+      const snapshot = await api.repairSession(sessionId);
+      if (snapshot.level) setLevel(snapshot.level);
+      if (snapshot.verification) setVerification(snapshot.verification);
+      if (snapshot.events) setEvents(snapshot.events);
+      setStatus(snapshot.terminalState === 'COMPLETED' ? 'VERIFIED' : snapshot.terminalState);
+      setActiveTab('verification');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setErrorMessage(`Repair failed: ${msg}`);
     }
   };
 
@@ -420,6 +443,8 @@ export const App: React.FC = () => {
             {activeTab === 'sabotage' && (
               <JudgeSabotagePanel
                 onSabotage={handleSabotage}
+                onRepair={handleRepairSession}
+                canRepair={verification?.status === 'FAILED'}
                 disabled={!level}
               />
             )}

@@ -497,4 +497,173 @@ export class ForgeSession {
 
     return this.getState();
   }
+
+  /**
+   * Triggers the bounded repair loop on the current level state.
+   * Useful when a level is broken by sabotage or physics regression and needs autonomous healing.
+   */
+  public async repair(): Promise<SessionSnapshot> {
+    if (!this.level) {
+      this.emit({
+        type: "ERROR",
+        sessionId: this.id,
+        code: "REPAIR_ERROR",
+        message: "Cannot repair session: no active level exists",
+        timestamp: new Date().toISOString(),
+      });
+      return this.getState();
+    }
+
+    if (!this.verification) {
+      this.verification = this.verifier.verify(this.level);
+    }
+
+    if (this.verification.status === "PASSED") {
+      return this.getState();
+    }
+
+    let currentAttempt = 0;
+    let repairPassed = false;
+    let currentFailure = this.verification;
+
+    while (currentAttempt < this.maxRepairAttempts && !repairPassed) {
+      currentAttempt++;
+      const counterexample = currentFailure.counterexample;
+
+      this.emit({
+        type: "REPAIR_STARTED",
+        sessionId: this.id,
+        attempt: currentAttempt,
+        maxAttempts: this.maxRepairAttempts,
+        counterexample,
+        timestamp: new Date().toISOString(),
+      });
+
+      const repairInput: RepairPromptInput = {
+        intent: this.intent,
+        spec: this.spec ?? undefined,
+        level: this.level,
+        verification: this.verification,
+        counterexample,
+        attempt: currentAttempt,
+        maxAttempts: this.maxRepairAttempts,
+      };
+
+      let proposedPatch: LevelPatch | null = null;
+      let patchValid = false;
+      let patchErrors: string[] = [];
+      const verificationBefore = this.verification;
+      let verificationAfter: VerificationResult | null = null;
+
+      try {
+        const rawPatch = await this.repairModel.repairLevel(repairInput);
+        let parsed: unknown = rawPatch;
+        if (typeof rawPatch === "string") {
+          parsed = extractJsonFromText(rawPatch);
+        }
+
+        const shapeCheck = validatePatchShape(parsed);
+        if (!shapeCheck.valid || !shapeCheck.patch) {
+          patchValid = false;
+          patchErrors = shapeCheck.errors;
+        } else {
+          proposedPatch = shapeCheck.patch;
+          const domainCheck = validatePatch(this.level, proposedPatch);
+          if (!domainCheck.valid) {
+            patchValid = false;
+            patchErrors = domainCheck.errors;
+          } else {
+            patchValid = true;
+          }
+        }
+      } catch (patchErr: any) {
+        patchValid = false;
+        patchErrors = [`Repair patch extraction failed: ${patchErr.message}`];
+      }
+
+      if (patchValid && proposedPatch) {
+        this.emit({
+          type: "PATCH_PROPOSED",
+          sessionId: this.id,
+          attempt: currentAttempt,
+          patch: proposedPatch,
+          timestamp: new Date().toISOString(),
+        });
+
+        const applyRes = applyPatch(this.level, proposedPatch);
+        if (applyRes.success) {
+          this.level = applyRes.level;
+          this.emit({
+            type: "PATCH_APPLIED",
+            sessionId: this.id,
+            attempt: currentAttempt,
+            patch: proposedPatch,
+            level: this.level,
+            timestamp: new Date().toISOString(),
+          });
+
+          this.emit({
+            type: "VERIFICATION_STARTED",
+            sessionId: this.id,
+            phase: "POST_PATCH",
+            attempt: currentAttempt,
+            timestamp: new Date().toISOString(),
+          });
+
+          verificationAfter = this.verifier.verify(this.level);
+          this.verification = verificationAfter;
+
+          this.emit({
+            type: "VERIFICATION_COMPLETED",
+            sessionId: this.id,
+            phase: "POST_PATCH",
+            result: this.verification,
+            timestamp: new Date().toISOString(),
+          });
+
+          if (this.verification.status === "PASSED") {
+            repairPassed = true;
+          } else {
+            currentFailure = this.verification;
+          }
+        } else {
+          patchValid = false;
+          patchErrors = applyRes.errors;
+        }
+      }
+
+      this.repairHistory.push({
+        attempt: currentAttempt,
+        counterexample,
+        proposedPatch,
+        patchValid,
+        patchErrors,
+        verificationBefore,
+        verificationAfter,
+      });
+    }
+
+    this.emit({
+      type: "REPAIR_COMPLETED",
+      sessionId: this.id,
+      success: repairPassed,
+      attempts: currentAttempt,
+      finalLevel: this.level,
+      timestamp: new Date().toISOString(),
+    });
+
+    this.terminalState = repairPassed ? "COMPLETED" : "FAILED";
+
+    this.emit({
+      type: "SESSION_COMPLETED",
+      sessionId: this.id,
+      success: repairPassed,
+      attempts: currentAttempt,
+      finalLevel: this.level,
+      verification: this.verification,
+      timestamp: new Date().toISOString(),
+    });
+
+    return this.getState();
+  }
 }

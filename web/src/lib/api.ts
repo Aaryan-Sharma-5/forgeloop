@@ -62,6 +62,22 @@ export async function sabotageSession(
 }
 
 /**
+ * Triggers autonomous surgical repair on the current session state.
+ */
+export async function repairSession(sessionId: string): Promise<SessionSnapshot> {
+  const res = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(sessionId)}/repair`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Repair failed (${res.status}): ${await res.text()}`);
+  }
+
+  return res.json();
+}
+
+/**
  * Unified command gateway executing any valid protocol ClientCommand.
  */
 export async function sendCommand(
@@ -107,6 +123,7 @@ export const api = {
   createSession,
   getSession,
   sabotageSession,
+  repairSession,
   sendCommand,
   getBenchmark,
   checkHealth,

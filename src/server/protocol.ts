@@ -32,6 +32,11 @@ export interface RegressPhysicsCommand {
   physicsConfig: Partial<PhysicsConfig>;
 }
 
+export interface RepairSessionCommand {
+  type: "REPAIR_SESSION";
+  sessionId: string;
+}
+
 export interface GetSessionCommand {
   type: "GET_SESSION";
   sessionId: string;
@@ -45,6 +50,7 @@ export type ClientCommand =
   | StartSessionCommand
   | SabotageLevelCommand
   | RegressPhysicsCommand
+  | RepairSessionCommand
   | GetSessionCommand
   | RunBenchmarkCommand;
 
@@ -177,6 +183,7 @@ const KNOWN_COMMAND_TYPES = new Set([
   "START_SESSION",
   "SABOTAGE_LEVEL",
   "REGRESS_PHYSICS",
+  "REPAIR_SESSION",
   "GET_SESSION",
   "RUN_BENCHMARK",
 ]);
@@ -240,6 +247,13 @@ export function validateClientCommand(input: unknown): CommandValidationResult {
       }
       if (!raw.physicsConfig || typeof raw.physicsConfig !== "object") {
         errors.push("REGRESS_PHYSICS requires a 'physicsConfig' object");
+      }
+      break;
+    }
+
+    case "REPAIR_SESSION": {
+      if (typeof raw.sessionId !== "string" || raw.sessionId.trim().length === 0) {
+        errors.push("REPAIR_SESSION requires a non-empty 'sessionId' string");
       }
       break;
     }

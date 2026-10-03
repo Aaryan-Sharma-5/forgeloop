@@ -78,6 +78,7 @@ export {
   type StartSessionCommand,
   type SabotageLevelCommand,
   type RegressPhysicsCommand,
+  type RepairSessionCommand,
   type GetSessionCommand,
   type RunBenchmarkCommand,
   type SessionStartedEvent,

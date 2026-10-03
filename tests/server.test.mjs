@@ -242,6 +242,44 @@ try {
   assert.equal(sessionData.sessionId, cmdData.data.sessionId);
   assert.ok(sessionData.events.length > 0);
   console.log("✔ PASS: GET /api/sessions/:id returns complete session snapshot and event timeline");
+
+  // Test Sabotage -> REPAIR_SESSION autonomous recovery
+  // Cut bridge tiles to create an impassable 5-tile gap (x=4,5,6,7,8)
+  await fetch(`${baseUrl}/api/sessions/${cmdData.data.sessionId}/sabotage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "CUT_BRIDGE", x: 5, y: 6 }),
+  });
+  await fetch(`${baseUrl}/api/sessions/${cmdData.data.sessionId}/sabotage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "CUT_BRIDGE", x: 6, y: 6 }),
+  });
+  const sabotageRes = await fetch(`${baseUrl}/api/sessions/${cmdData.data.sessionId}/sabotage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "CUT_BRIDGE", x: 7, y: 6 }),
+  });
+  assert.equal(sabotageRes.status, 200);
+  const sabotagedState = await sabotageRes.json();
+  assert.equal(sabotagedState.verification.status, "FAILED");
+  assert.ok(sabotagedState.events.some((e) => e.type === "VERIFICATION_COMPLETED" && e.phase === "POST_SABOTAGE"));
+  console.log("✔ PASS: POST /api/sessions/:id/sabotage injects bridge cut and detects FAILED reachability");
+
+  // Trigger autonomous repair via POST /api/command with REPAIR_SESSION
+  const repairCmdRes = await fetch(`${baseUrl}/api/command`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: "REPAIR_SESSION",
+      sessionId: cmdData.data.sessionId,
+    }),
+  });
+  assert.equal(repairCmdRes.status, 200);
+  const repairCmdData = await repairCmdRes.json();
+  assert.equal(repairCmdData.success, true);
+  assert.ok(repairCmdData.data.events.some((e) => e.type === "REPAIR_COMPLETED"));
+  console.log("✔ PASS: REPAIR_SESSION command autonomously executes repair loop on damaged level");
 } finally {
   await server.close();
   console.log("✔ PASS: HTTP server closed cleanly");

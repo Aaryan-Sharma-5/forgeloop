@@ -81,6 +81,42 @@ export const PlayMode: React.FC<PlayModeProps> = ({
         return curY;
       };
 
+      const isAirspace = (x: number, y: number): boolean => {
+        if (x < 0 || x >= level.width || y < 0 || y >= level.height) return false;
+        const t = level.tiles[y]?.[x];
+        return t !== "GROUND" && t !== "HAZARD";
+      };
+
+      const buildJumpArc = (
+        startX: number,
+        startY: number,
+        facingSign: -1 | 1,
+        distance: number
+      ): { x: number; y: number }[] => {
+        const apex = 1;
+        if (distance === 2) {
+          return [
+            { x: startX + facingSign * 1, y: startY - apex },
+            { x: startX + facingSign * 2, y: startY },
+          ];
+        }
+        if (distance === 4) {
+          return [
+            { x: startX + facingSign * 1, y: startY - apex },
+            { x: startX + facingSign * 2, y: startY - (apex + 1) },
+            { x: startX + facingSign * 3, y: startY - apex },
+            { x: startX + facingSign * 4, y: startY },
+          ];
+        }
+        const arc = [];
+        for (let step = 1; step <= distance; step++) {
+          const p = step / distance;
+          const dy = -Math.round(4 * apex * p * (1 - p));
+          arc.push({ x: startX + facingSign * step, y: startY + dy });
+        }
+        return arc;
+      };
+
       if (action === "MOVE_LEFT" || action === "MOVE_RIGHT") {
         const targetX = player.x + sign;
         if (targetX >= 0 && targetX < level.width && !isSolid(targetX, player.y)) {
@@ -90,21 +126,43 @@ export const PlayMode: React.FC<PlayModeProps> = ({
             nextY = landY;
           }
         }
-      } else if (action === "JUMP_SHORT") {
-        const distance = 2;
-        const targetX = player.x + sign * distance;
-        if (targetX >= 0 && targetX < level.width && !isSolid(targetX, player.y)) {
-          nextX = targetX;
-          const landY = applyGravity(nextX, nextY);
-          if (landY !== null) {
-            nextY = landY;
+      } else if (action === "JUMP_SHORT" || action === "JUMP_LONG") {
+        if (!player.grounded) {
+          setStatusMessage("⚠️ Cannot jump while airborne (must be grounded)!");
+          return;
+        }
+
+        const distance = action === "JUMP_SHORT" ? 2 : 4;
+        const arc = buildJumpArc(player.x, player.y, (sign === -1 ? -1 : 1), distance);
+
+        let blocked = false;
+        let obstacleReason = "";
+        for (const pt of arc) {
+          if (!isAirspace(pt.x, pt.y)) {
+            blocked = true;
+            obstacleReason =
+              pt.x < 0 || pt.x >= level.width || pt.y < 0 || pt.y >= level.height
+                ? "Boundary"
+                : level.tiles[pt.y]?.[pt.x] === "HAZARD"
+                ? "Hazard Spike"
+                : "Ceiling / Obstacle";
+            break;
           }
         }
-      } else if (action === "JUMP_LONG") {
-        const distance = 4;
+
+        if (blocked) {
+          setStatusMessage(`⛔ ${action} trajectory blocked by ${obstacleReason}!`);
+          return;
+        }
+
         const targetX = player.x + sign * distance;
-        if (targetX >= 0 && targetX < level.width && !isSolid(targetX, player.y)) {
-          nextX = targetX;
+        nextX = targetX;
+        const landY = applyGravity(nextX, nextY);
+        if (landY !== null) {
+          nextY = landY;
+        }
+      } else if (action === "WAIT") {
+        if (!player.grounded) {
           const landY = applyGravity(nextX, nextY);
           if (landY !== null) {
             nextY = landY;
