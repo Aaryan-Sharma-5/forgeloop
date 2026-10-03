@@ -6,8 +6,9 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build && node tests/run.mjs && node tests/patches.test.mjs && node tests/constraints.test.mjs"
+    "test": "npm run build && node tests/run.mjs && node tests/patches.test.mjs && node tests/constraints.test.mjs && node tests/generator.test.mjs"
   },
+
   "engines": {
     "node": ">=20"
   }
