@@ -204,11 +204,19 @@ export class PhysicsEngine {
   }
 
   private isWalkable(x: number, y: number): boolean {
-    return this.isInside(x, y) && !this.isSolid(x, y);
+    return (
+      this.isInside(x, y) &&
+      !this.isSolid(x, y) &&
+      this.tileAt(x, y) !== "HAZARD"
+    );
   }
 
   private isAirspace(x: number, y: number): boolean {
-    return this.isInside(x, y) && !this.isSolid(x, y) && this.tileAt(x, y) !== "HAZARD";
+    return (
+      this.isInside(x, y) &&
+      !this.isSolid(x, y) &&
+      this.tileAt(x, y) !== "HAZARD"
+    );
   }
 
   private isSolid(x: number, y: number): boolean {
