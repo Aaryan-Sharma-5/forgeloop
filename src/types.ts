@@ -68,12 +68,28 @@ export interface Counterexample {
   metrics: VerificationMetrics;
 }
 
+export type DifficultyGrade = "EASY" | "MEDIUM" | "HARD";
+
+export interface DifficultyBreakdown {
+  actionLengthScore: number;
+  criticalJumpScore: number;
+  explorationComplexityScore: number;
+  alternativePenalty: number;
+}
+
+export interface DifficultyScore {
+  score: number;
+  grade: DifficultyGrade;
+  breakdown: DifficultyBreakdown;
+}
+
 export interface VerificationMetrics {
   states_explored: number;
   action_sequence_length: number | null;
   critical_jumps_required: number;
   alternative_solution_count: number;
   max_reached_distance: number;
+  difficulty?: DifficultyScore;
 }
 
 export interface VerificationSuccess {

@@ -8,6 +8,11 @@ export {
   computePatch,
   DEFAULT_MAX_PATCH_OPERATIONS,
 } from "./verifier/patches.js";
+export {
+  checkConstraints,
+  evaluateDifficulty,
+  DIFFICULTY_THRESHOLDS,
+} from "./verifier/constraints.js";
 export * as fixtures from "./verifier/fixtures.js";
 
 import { BFSVerifier } from "./verifier/BFSVerifier.js";

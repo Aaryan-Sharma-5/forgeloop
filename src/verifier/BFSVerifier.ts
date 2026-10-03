@@ -9,6 +9,7 @@ import type {
 } from "../types.js";
 import { PhysicsEngine } from "./PhysicsEngine.js";
 import { validateLevelStructure } from "../shared/validation.js";
+import { checkConstraints } from "./constraints.js";
 
 const ACTIONS: Action[] = [
   "MOVE_LEFT",
@@ -171,86 +172,25 @@ export class BFSVerifier {
 
     // If a solution exists, verify declared design constraints
     if (solution) {
-      const jumpsInSolution = metrics.critical_jumps_required;
-      const pathLength = solution.length;
-
-      // 1. Required jumps constraint
-      if (
-        level.constraints.required_jumps !== undefined &&
-        jumpsInSolution < level.constraints.required_jumps
-      ) {
+      const constraintCheck = checkConstraints(level, solution, metrics);
+      if (!constraintCheck.satisfied && constraintCheck.counterexample) {
         return {
           status: "FAILED",
-          counterexample: {
-            status: "CONSTRAINT_VIOLATION",
-            reason: `Level solved with ${jumpsInSolution} jumps, but requires ${level.constraints.required_jumps} jumps`,
-            failure_node: { x: goal.x, y: goal.y },
-            attempted_action: null,
-            collision_at: null,
-            violated: {
-              constraint: "required_jumps",
-              required: level.constraints.required_jumps,
-              actual: jumpsInSolution,
-              details: `Solution path bypassed required jump challenges with only ${jumpsInSolution} jumps`,
-            },
-            metrics,
+          counterexample: constraintCheck.counterexample,
+          metrics: {
+            ...metrics,
+            difficulty: constraintCheck.difficulty,
           },
-          metrics,
         };
-      }
-
-      // 2. Minimum path length constraint
-      if (
-        level.constraints.min_path_length !== undefined &&
-        pathLength < level.constraints.min_path_length
-      ) {
-        return {
-          status: "FAILED",
-          counterexample: {
-            status: "CONSTRAINT_VIOLATION",
-            reason: `Shortest solution length (${pathLength}) is below required minimum (${level.constraints.min_path_length})`,
-            failure_node: { x: goal.x, y: goal.y },
-            attempted_action: null,
-            collision_at: null,
-            violated: {
-              constraint: "min_path_length",
-              required: level.constraints.min_path_length,
-              actual: pathLength,
-            },
-            metrics,
-          },
-          metrics,
-        };
-      }
-
-      // 3. No trivial route constraint
-      if (level.constraints.no_trivial_route) {
-        if (jumpsInSolution === 0) {
-          return {
-            status: "FAILED",
-            counterexample: {
-              status: "CONSTRAINT_VIOLATION",
-              reason: "Level violated no_trivial_route: goal reachable via pure walking without any jumps",
-              failure_node: { x: goal.x, y: goal.y },
-              attempted_action: null,
-              collision_at: null,
-              violated: {
-                constraint: "no_trivial_route",
-                required: ">= 1 jump",
-                actual: "0 jumps",
-                details: "Flat walking path found connecting START directly to GOAL",
-              },
-              metrics,
-            },
-            metrics,
-          };
-        }
       }
 
       return {
         status: "PASSED",
         action_sequence: solution,
-        metrics,
+        metrics: {
+          ...metrics,
+          difficulty: constraintCheck.difficulty,
+        },
       };
     }
 
