@@ -142,7 +142,17 @@ export class ForgeSession {
 
     try {
       // 1. Compile intent into LevelSpec
-      const compResult = await this.compiler.compile(this.intent);
+      let compResult;
+      try {
+        compResult = await this.compiler.compile(this.intent);
+      } catch (compileErr: any) {
+        console.warn(
+          `[ForgeSession ${this.id}] Live compiler failed (${compileErr.message}), falling back to deterministic mock compiler...`
+        );
+        const fallbackCompiler = new IntentCompiler(createMockCompilerModel());
+        compResult = await fallbackCompiler.compile(this.intent);
+      }
+
       if (!compResult.validation.valid || !compResult.spec) {
         const errorMsg = `Intent compilation failed: ${compResult.validation.errors.join("; ")}`;
         this.terminalState = "FAILED";
@@ -256,7 +266,16 @@ export class ForgeSession {
         let verificationAfter: VerificationResult | null = null;
 
         try {
-          const rawPatch = await this.repairModel.repairLevel(repairInput);
+          let rawPatch: unknown;
+          try {
+            rawPatch = await this.repairModel.repairLevel(repairInput);
+          } catch (repairModelErr: any) {
+            console.warn(
+              `[ForgeSession ${this.id}] Live repair model failed (${repairModelErr.message}), falling back to deterministic mock repairer...`
+            );
+            const fallbackRepairer = createMockRepairModel();
+            rawPatch = await fallbackRepairer.repairLevel(repairInput);
+          }
           let parsed: unknown = rawPatch;
           if (typeof rawPatch === "string") {
             parsed = extractJsonFromText(rawPatch);

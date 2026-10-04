@@ -139,6 +139,7 @@ export interface GroqRepairModelOptions {
   model?: string;
   temperature?: number;
   baseUrl?: string;
+  maxTokens?: number;
 }
 
 /**
@@ -158,6 +159,7 @@ export function createGroqRepairModel(
   const apiKey = options.apiKey ?? envKey;
   const model = options.model ?? envModel ?? "qwen/qwen3.8-27b";
   const temperature = options.temperature ?? 0.1;
+  const maxTokens = options.maxTokens ?? 500;
   const baseUrl = options.baseUrl ?? "https://api.groq.com/openai/v1/chat/completions";
 
   return {
@@ -184,6 +186,7 @@ export function createGroqRepairModel(
               { role: "user", content: prompt },
             ],
             temperature,
+            max_tokens: maxTokens,
             response_format: { type: "json_object" },
           }),
         });
