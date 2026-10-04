@@ -1,330 +1,310 @@
 # ForgeLoop
 
-### Generate. Challenge. Repair. Verify. Play.
+**Autonomous, Counterexample-Guided Level Design & Verification Workstation for 2D Platformers**
 
-ForgeLoop is an AI-native game-development tool that turns high-level game-design intent into **verified playable levels** through a counterexample-guided synthesis loop.
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B-green.svg)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-19.2-61dafb.svg)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-8.3-646cff.svg)](https://vitejs.dev/)
+[![Track](https://img.shields.io/badge/Track-Game%20Tech-orange.svg)](#hackathon-context)
 
-Instead of asking generative AI to produce a level and trusting the result, ForgeLoop makes a deterministic game model actively try to break the generated level. When it finds a failure, that failure becomes a structured counterexample that drives an AI repair patch. The repaired level is then verified again.
+---
+
+### AI proposes. The game model verifies. Counterexamples drive repair.
+
+ForgeLoop is an autonomous, counterexample-guided level design and verification workstation for 2D platformers. It translates natural-language game-design intent into structured level specifications, compiles candidate levels, deterministically verifies them under a canonical discrete physics model, extracts structured counterexamples upon failure, employs an AI repairer to propose minimal surgical patches, and re-verifies the result before permitting Play Mode.
 
 ```text
-Natural-language design intent
-            ↓
-       AI generation
-            ↓
-       Candidate level
-            ↓
-   Deterministic verifier
-            ↓
-      ┌─────┴─────┐
-      │           │
-     FAIL        PASS
-      │           │
-Counterexample   Verified
-      │           │
-  AI repair       ↓
-      │          PLAY
-      └──────→ VERIFY
+       NATURAL LANGUAGE INTENT
+                 │
+                 ▼
+          ┌─────────────┐
+          │ AI PROPOSER │
+          └──────┬──────┘
+                 │ LevelSpec IR (Rectangular Platforms & Hazards)
+                 ▼
+        ┌─────────────────┐
+        │ LEVEL GENERATOR │
+        └────────┬────────┘
+                 │ Canonical 12×8 Tile Matrix
+                 ▼
+        ┌─────────────────┐
+        │  DETERMINISTIC  │
+        │  BFS VERIFIER   │
+        └────────┬────────┘
+                 │
+         ┌───────┴────────┐
+         │                │
+       PASS             FAIL
+         │                │
+         ▼                ▼
+    PLAYABLE        COUNTEREXAMPLE
+  (Play Mode)            │ (Failure Node, Collision Coord, Gap Vector)
+                         ▼
+                  ┌─────────────┐
+                  │ AI REPAIRER │
+                  └──────┬──────┘
+                         │ Minimal LevelPatch (1–3 Tile Delta)
+                         ▼
+             DETERMINISTIC RE-VERIFY
+                         │
+                         └──────→ PASS → PLAY MODE
 ```
 
----
-
-## Why ForgeLoop?
-
-Generative AI is good at producing game content, but generation alone does not guarantee that the resulting content satisfies gameplay constraints.
-
-ForgeLoop separates **creative synthesis** from **machine verification**:
-
-- AI interprets high-level game-design intent.
-- A deterministic game model decides what is actually possible.
-- A search algorithm attempts to reach the goal.
-- Failures become structured counterexamples.
-- AI proposes minimal repairs.
-- The verifier decides whether the repair worked.
-
-The core principle is:
-
-> **AI proposes. The game model verifies. Counterexamples drive repair.**
-
-ForgeLoop does not claim universal or mathematical proof of playability. A level is considered verified only with respect to the deterministic game model and constraints implemented by ForgeLoop.
+ForgeLoop repeatedly reinforces the foundational boundary between **creative generation** and **deterministic correctness**: natural language expresses creative intent, but only deterministic computation establishes gameplay reality.
 
 ---
 
-# Hackathon Context
+## Table of Contents
 
-ForgeLoop targets the **Game Tech Track** of the Tencent × Arcade AI Hackathon.
-
-The track explicitly includes areas such as:
-
-- World generation
-- Simulation
-- AI agents
-- Developer tools
-- Production pipelines
-
-The project is intentionally positioned as **game-development technology**, not simply a game with an LLM attached.
-
-The hackathon judging rubric provided by the organizers is:
-
-| Criterion | Weight |
-|---|---:|
-| Execution & Functionality | 25% |
-| Track Fit | 25% |
-| Innovation & Originality | 20% |
-| AI × Gaming Relevance | 15% |
-| Potential & Impact | 10% |
-| Demo & Clarity | 5% |
-
-The project therefore prioritizes a working end-to-end technical loop and a highly visible demonstration over feature count.
-
----
-
-# Core Product
-
-## User input
-
-The user describes a level using natural language.
-
-Example:
-
-> Create a medium 2D platformer level requiring three precise jumps, with a minimum path length of 15 actions and no trivial route to the goal.
-
-## ForgeLoop
-
-### 1. Generate
-
-An LLM converts the design intent into a structured level representation.
-
-### 2. Challenge
-
-The deterministic verifier attempts to traverse the level using a discrete game model.
-
-### 3. Diagnose
-
-If traversal fails, ForgeLoop records a structured counterexample:
-
-- failure state
-- attempted action
-- collision coordinate
-- reason
-- search metrics
-
-### 4. Repair
-
-The LLM receives the counterexample and proposes a minimal JSON patch.
-
-### 5. Verify
-
-The patch is applied deterministically and the level is tested again.
-
-### 6. Play
-
-Once the level satisfies the required constraints, the user can play the verified level.
+- [Why ForgeLoop Exists](#why-forgeloop-exists)
+- [Four Real-World Game Tech Usecases](#four-real-world-game-tech-usecases)
+- [The Core Idea: CEGIS Architecture](#the-core-idea-cegis-architecture)
+- [The Architectural Proof: The (2,6) → (3,6) Collision](#the-architectural-proof-the-26--36-collision)
+- [Trust Boundary: AI vs. Deterministic Logic](#trust-boundary-ai-vs-deterministic-logic)
+- [System Architecture](#system-architecture)
+- [Discrete Game Model](#discrete-game-model)
+- [Parametric Physics Model](#parametric-physics-model)
+- [Authoritative BFS Verification Engine](#authoritative-bfs-verification-engine)
+- [Constraint System & Calibrated Difficulty Model](#constraint-system--calibrated-difficulty-model)
+- [Surgical Patch Engine](#surgical-patch-engine)
+- [AI Generation & Intent Compilation](#ai-generation--intent-compilation)
+- [Bounded Repair Loop](#bounded-repair-loop)
+- [Interactive Judge Sabotage](#interactive-judge-sabotage)
+- [Physics Regression Bench](#physics-regression-bench)
+- [Web Workstation Interface](#web-workstation-interface)
+- [Repository Structure](#repository-structure)
+- [Installation](#installation)
+- [Environment Variables](#environment-variables)
+- [Running Locally](#running-locally)
+- [API Reference](#api-reference)
+- [Event Stream (SSE Protocol)](#event-stream-sse-protocol)
+- [Testing](#testing)
+- [Ablation Benchmark Report](#ablation-benchmark-report)
+- [Current Verification Status](#current-verification-status)
+- [Limitations](#limitations)
+- [Why This Is Different](#why-this-is-different)
+- [Demo Walkthrough Flow](#demo-walkthrough-flow)
+- [Hackathon Context](#hackathon-context)
+- [Roadmap](#roadmap)
+- [License & Notes](#license--notes)
 
 ---
 
-# Technical Architecture
+## Why ForgeLoop Exists
+
+Generative AI models are capable of synthesizing 2D platformer geometry that *looks* visually plausible. However, visual plausibility is not equivalent to gameplay correctness.
+
+Typical failure modes in raw generative game design include:
+- **Unreachable goals**: Missing platforms, chasms exceeding maximum jump apex or reach.
+- **Impossible jumps**: Obstacles positioned directly into discrete jump trajectories.
+- **Blocked corridors**: Solid geometry placed on walking planes.
+- **Lethal collision vectors**: Hazards that cannot be cleared without taking damage.
+- **Constraint violations**: Levels solvable in fewer jumps than the designer required.
+- **Trivial bypasses**: Flat, unobstructed floor routes that completely circumvent intended platforming challenges.
+- **Physics invalidation**: Previously functional levels rendered impossible when a gameplay engineer tweaks jump distances.
+
+Traditional generative workflows address these failures through brute-force filtering (rerolling random seeds until one works), rigid hand-authored procedural templates, or expensive human QA cycles.
+
+### Does ForgeLoop replace human QA?
+**No.** Professional game studios require human playtesters for game feel, pacing, aesthetics, player psychology, and fun. ForgeLoop addresses a narrower, highly defensible engineering problem:
+
+> **ForgeLoop automates deterministic correctness checks and machine-verifiable gameplay constraints that would otherwise require repeated manual validation.**
+
+---
+
+## Four Real-World Game Tech Usecases
+
+### 1. Automated Procedural Level Pipelines
+- **The Problem:** Live-service studios want to generate 10,000 level variations overnight. Without automated verification, teams either deploy soft-locked levels to players or incur unsustainable manual QA costs.
+- **The ForgeLoop Solution:** Headless verification tests candidate seeds in milliseconds. Unsolvable layouts emit counterexamples, undergo automated bounded repair, and only deterministically verified levels are committed to the game database.
+
+### 2. Player-Prompted Custom Levels
+- **The Problem:** A player prompts: *"Make me a hard level with 3 long jumps and no trivial walking route."* An LLM cannot verify if its output actually requires 3 jumps or if a player can simply walk underneath the obstacles.
+- **The ForgeLoop Solution:** Natural language defines intent; deterministic computation defines reality. The verifier checks both reachability and strict constraint satisfaction (minimum path length, required jump count, and no-trivial-route enforcement).
+
+### 3. Physics & Balance Regression Testing (CI/CD for Game Engines)
+- **The Problem:** A gameplay designer tweaks a character parameter (e.g. nerfing `LONG_JUMP_DISTANCE` from 4 to 3 tiles). Studios have no automated way of knowing which of their 500 existing levels were broken by the patch.
+- **The ForgeLoop Solution:** ForgeLoop's parametric physics bench allows designers to adjust jump reach or gravity and immediately rerun regression verification across the entire catalog, flagging invalidated levels with pinpoint failure nodes.
+
+### 4. Counterexample-Guided Surgical Repair
+- **The Problem:** When an AI level fails, naive generators discard the entire level and reroll from scratch, destroying level layout continuity and designer intent.
+- **The ForgeLoop Solution:** ForgeLoop isolates the exact failure node and collision point. The AI repair model acts as a surgeon, applying a minimal 1–3 tile delta patch (e.g., placing a stepping stone or clearing an obstacle) and re-verifying in under 400ms.
+
+---
+
+## The Core Idea: CEGIS Architecture
+
+ForgeLoop adapts **Counterexample-Guided Inductive Synthesis (CEGIS)** from formal methods to level design:
 
 ```text
-                         ┌─────────────────────┐
-                         │      React UI       │
-                         │                     │
-                         │ Level Visualization │
-                         │ Verification Trace  │
-                         │ Constraint Metrics  │
-                         │ Play Mode            │
-                         └──────────┬──────────┘
-                                    │
-                               WebSocket
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │  Node.js Backend    │
-                         │    Orchestrator     │
-                         └──────────┬──────────┘
-                                    │
-                  ┌─────────────────┼─────────────────┐
-                  │                 │                 │
-                  ▼                 ▼                 ▼
-          ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-          │   Generator  │  │  Deterministic│  │   Repairer   │
-          │     LLM      │  │   Verifier   │  │     LLM      │
-          └──────┬───────┘  └──────┬───────┘  └──────┬───────┘
-                 │                 │                 │
-                 │                 │                 │
-                 └────────────┬────┴─────────────────┘
-                              │
-                         Level / Patch
-                              │
-                              ▼
-                       Verification Loop
+Candidate Level
+      ↓
+Deterministic Verifier
+      ↓
+    FAILED
+      ↓
+Extract Structured Counterexample
+      ↓
+AI Surgical Repair
+      ↓
+Apply Minimal Patch
+      ↓
+Deterministic Re-Verification
+      ↓
+    PASSED
 ```
 
-### Deterministic layer
-
-The deterministic layer is authoritative for:
-
-- game-state transitions
-- collision
-- reachability
-- search
-- path reconstruction
-- constraint checking
-- difficulty metrics
-- patch application
-
-### AI layer
-
-The AI layer is responsible for:
-
-- interpreting natural-language design intent
-- synthesizing candidate levels
-- interpreting counterexamples
-- proposing repair patches
-
-The AI never determines whether its own output passed verification.
-
----
-
-# Discrete Game Model
-
-ForgeLoop intentionally does not use a continuous physics engine for the hackathon MVP.
-
-The world is represented as an integer grid.
-
-```text
-TileType =
-  AIR
-  GROUND
-  HAZARD
-  START
-  GOAL
-```
-
-Coordinates use:
-
-```text
-x = horizontal position
-y = vertical position
-```
-
-Tiles are stored as:
-
-```typescript
-tiles[y][x]
-```
-
-The movement model uses deterministic macro-actions:
-
-```text
-MOVE_LEFT
-MOVE_RIGHT
-JUMP_SHORT
-JUMP_LONG
-WAIT
-```
-
-Jumps use predefined integer trajectories instead of continuous acceleration and frame simulation.
-
-This makes the verifier:
-
-- deterministic
-- fast
-- reproducible
-- explainable
-- easy to test
-- suitable for a live hackathon demo
-
-The abstraction is intentional. It is a prototype of the **verification architecture**, not a replacement for a production AAA physics engine.
-
----
-
-# Level DSL & Intermediate Representation
-
-The canonical level contract is:
-
-```typescript
-export type TileType =
-  | "AIR"
-  | "GROUND"
-  | "HAZARD"
-  | "START"
-  | "GOAL";
-
-export interface LevelConstraints {
-  required_jumps: number;
-  min_path_length: number;
-  target_difficulty: "EASY" | "MEDIUM" | "HARD";
-  no_trivial_route?: boolean; // When true, solutions cannot bypass obstacles with fewer than required_jumps
-}
-
-export interface Level {
-  width: number;
-  height: number;
-  tiles: TileType[][]; // [y][x]
-  constraints: LevelConstraints;
-}
-
-// Intermediate Representation for Generative Models:
-// Models output structured rectangles rather than brittle raw 2D ASCII grids,
-// eliminating hallucinated row lengths and spatial alignment bugs.
-export interface RectSpec {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-export interface LevelSpec {
-  width: number;
-  height: number;
-  platforms: RectSpec[];
-  hazards: RectSpec[];
-  start: { x: number; y: number };
-  goal: { x: number; y: number };
-  constraints: LevelConstraints;
-}
-```
-
-Example verified Level (strictly 12×8):
+A verification failure in ForgeLoop is never treated as a fatal crash or an opaque error string. Instead, the engine produces **structured mathematical evidence**:
 
 ```json
 {
-  "width": 12,
-  "height": 8,
-  "tiles": [
-    ["AIR", "AIR", "AIR", "AIR", "AIR", "AIR", "AIR", "AIR", "AIR", "AIR", "AIR", "AIR"],
-    ["AIR", "AIR", "AIR", "AIR", "AIR", "AIR", "AIR", "AIR", "AIR", "AIR", "AIR", "AIR"],
-    ["AIR", "AIR", "AIR", "AIR", "AIR", "AIR", "AIR", "AIR", "AIR", "AIR", "AIR", "AIR"],
-    ["START", "AIR", "AIR", "GROUND", "AIR", "AIR", "GROUND", "AIR", "AIR", "GOAL", "AIR", "AIR"],
-    ["GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND"],
-    ["GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND"],
-    ["GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND"],
-    ["GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND", "GROUND"]
-  ],
-  "constraints": {
-    "required_jumps": 3,
-    "min_path_length": 15,
-    "target_difficulty": "MEDIUM",
-    "no_trivial_route": true
+  "status": "FAILED",
+  "counterexample": {
+    "status": "FAILED_REACHABILITY",
+    "reason": "Movement blocked by GROUND",
+    "failure_node": { "x": 2, "y": 6 },
+    "attempted_action": "MOVE_RIGHT",
+    "collision_at": { "x": 3, "y": 6 },
+    "gap_to_goal": {
+      "dx": 8,
+      "dy": 0,
+      "manhattan_distance": 8
+    },
+    "metrics": {
+      "states_explored": 12,
+      "max_reached_distance": 2
+    }
   }
 }
 ```
 
-The generator produces schema-valid `LevelSpec` structures which are deterministically compiled by `compileLevelSpec` and validated by `validateLevelStructure`.
+This telemetry is injected directly into the repair prompt, constraining the AI to resolve the exact spatial conflict identified by the physics engine.
 
 ---
 
-# Game State & Parametric Physics
+## The Architectural Proof: The (2,6) → (3,6) Collision
+
+During testing, an LLM proposed an autonomous repair that placed solid `GROUND` tiles along row $y=6$ (the player's walking plane).
+
+To an unconstrained language model, placing ground tiles looked like a plausible bridge. But the deterministic verifier immediately rejected the patch: placing ground at $(3,6)$ formed a solid wall in front of the player standing at $(2,6)$:
+
+```text
+STATUS: FAILED // FAILED_REACHABILITY
+Reason:          Movement blocked by GROUND
+Failure Node:    (2, 6)
+Collision Point: (3, 6)
+Attempted:       MOVE_RIGHT
+```
+
+> **"The AI thought this was a valid repair. The verifier disagreed. ForgeLoop does not trust the model. It trusts the game model."**
+
+This concrete failure demonstrates the core architectural value: generative AI cannot evaluate its own spatial physics. The deterministic verifier is the sole authoritative arbiter of correctness.
+
+---
+
+## Trust Boundary: AI vs. Deterministic Logic
+
+ForgeLoop implements a strict **Zero-Trust AI Architecture**. The language model is completely quarantined from the evaluation and execution engines.
+
+| System Responsibility | AI Layer (Untrusted) | Deterministic Layer (Authoritative) |
+|---|:---:|:---:|
+| **Natural Language Interpretation** | **Authoritative** (Compiles intent to constraints) | Non-participating |
+| **LevelSpec Synthesis** | **Proposer** (Outputs platform/hazard rectangles) | Non-participating |
+| **Level Compilation** | Non-participating | **Authoritative** (`compileLevelSpec`) |
+| **Syntactic & Structural Validation** | Non-participating | **Authoritative** (`validateLevelStructure`) |
+| **Physics State Transitions** | Non-participating | **Authoritative** (`PhysicsEngine.applyAction`) |
+| **Collision Detection** | Non-participating | **Authoritative** (Swept integer collision) |
+| **Reachability & Path Search** | Non-participating | **Authoritative** (`BFSVerifier`) |
+| **Constraint Satisfaction** | Non-participating | **Authoritative** (`checkConstraints`) |
+| **Difficulty Metric Calculation** | Non-participating | **Authoritative** (`evaluateDifficulty`) |
+| **Counterexample Extraction** | Non-participating | **Authoritative** (`extractCounterexample`) |
+| **Repair Mutation** | **Proposer** (Synthesizes minimal patch) | Non-participating |
+| **Patch Validation & Application** | Non-participating | **Authoritative** (`validateLevelPatch` & `applyPatch`) |
+| **Final PASS / FAIL Decision** | Non-participating | **Authoritative** (Sole gatekeeper to Play Mode) |
+
+The AI is never permitted to declare that a level passed verification.
+
+---
+
+## System Architecture
+
+ForgeLoop is structured as a decoupled client-server architecture communicating over HTTP REST and Server-Sent Events (SSE):
+
+```text
+                    BROWSER / CLIENT
+             ┌─────────────────────────────┐
+             │   React 19 Web Workstation  │
+             │   (LevelCanvas, Telemetry,   │
+             │    PlayMode, Sabotage, Bench)│
+             └──────────────┬──────────────┘
+                            │
+               HTTP POST    │    Server-Sent Events (SSE)
+               Commands     │    Live Event Stream
+                            ▼
+                    BACKEND SERVER
+             ┌─────────────────────────────┐
+             │         ForgeServer         │
+             │   (REST & SSE Orchestrator) │
+             └──────────────┬──────────────┘
+                            │ Manages isolated instances
+                            ▼
+             ┌─────────────────────────────┐
+             │        ForgeSession         │
+             │   (State & Lifecycle Host)  │
+             └──────────────┬──────────────┘
+                            │
+      ┌─────────────────────┼─────────────────────┐
+      │                     │                     │
+      ▼                     ▼                     ▼
+┌─────────────┐       ┌─────────────┐       ┌─────────────┐
+│ AI Compiler │       │Deterministic│       │ AI Repairer │
+│(Intent to   │       │ BFSVerifier │       │(Counter-    │
+│ LevelSpec)  │       │(State Search│       │ example to  │
+│             │       │& Constraints│       │ LevelPatch) │
+└─────────────┘       └─────────────┘       └─────────────┘
+```
+
+- **Frontend**: Single-page application built with React 19 and Vite. Renders the live CAD drafting canvas, streams server telemetry in real time via SSE, and hosts an integrated Play Mode.
+- **Backend Orchestrator (`ForgeServer`)**: Native Node.js HTTP server. Exposes REST endpoints for session lifecycle, sabotage, and repair, alongside a persistent `/events` SSE stream.
+- **Session State (`ForgeSession`)**: Maintains isolated session state machines, event histories, and active level matrices.
+- **Deterministic Engine**: Headless TypeScript modules executing physics simulation, BFS exploration, constraint checks, and patch mutations.
+- **AI Layer**: Client adapters for Groq LLM inference with automated fallback to deterministic mock models.
+
+---
+
+## Discrete Game Model
+
+ForgeLoop intentionally models a bounded integer grid rather than continuous floating-point physics. This design choice ensures that the state space is finite, discrete, and exhaustively searchable in milliseconds.
+
+### Grid Dimensions
+Canonical levels are strictly bounded to:
+- **Width**: 12 tiles ($x \in [0, 11]$)
+- **Height**: 8 tiles ($y \in [0, 7]$)
+
+Coordinate $(0,0)$ represents the top-left tile. Tiles are accessed in row-major order: `tiles[y][x]`.
+
+### Tile Vocabulary
+- `AIR` (`.`): Traversible empty space.
+- `GROUND` (`#`): Solid impassable obstacle. Provides footing when below the player.
+- `HAZARD` (`^`): Lethal surface. Entering or touching a hazard immediately fails the trajectory.
+- `START` (`S`): Starting coordinate for the player (exactly one per level).
+- `GOAL` (`G`): Exit coordinate (exactly one per level).
+
+### Action Vocabulary
+- `MOVE_LEFT`: Shift position by $(-1, 0)$. Valid only when grounded.
+- `MOVE_RIGHT`: Shift position by $(+1, 0)$. Valid only when grounded.
+- `JUMP_SHORT`: Discrete arc traversing 2 horizontal tiles and 1 vertical tile apex.
+- `JUMP_LONG`: Discrete arc traversing 4 horizontal tiles and 1 vertical tile apex.
+- `WAIT`: Fall vertically by gravity until landing on ground or out of bounds.
+
+---
+
+## Parametric Physics Model
+
+All state transitions are deterministic, discrete, and integer-based:
 
 ```typescript
-export interface GameState {
-  x: number;
-  y: number;
-  grounded: boolean;
-  facing: -1 | 1;
-}
-
-// Parametric physics config enabling rules-change regression
 export interface PhysicsConfig {
   shortJumpDistance: number; // default: 2
   longJumpDistance: number;  // default: 4
@@ -333,864 +313,512 @@ export interface PhysicsConfig {
 }
 ```
 
-All state variables are discrete and transitions are atomic macro-actions with swept collisions. Continuous velocity variables (`vx`/`vy`) are omitted to avoid state duplication during search.
+### Shared Engine Invariant
+The physics transition rules in `src/verifier/PhysicsEngine.ts` are identical across:
+1. **The Headless Verifier** during BFS exploration.
+2. **The Frontend Play Mode** during interactive human play.
 
-The verifier treats the state transition function as authoritative.
-
----
-
-# Verification & Counterexamples
-
-ForgeLoop uses BFS in the MVP because the state/action space is deliberately bounded and discrete.
-
-Conceptually:
-
-```text
-START
-  ↓
-Enumerate actions
-  ↓
-Apply deterministic transition
-  ↓
-Reject invalid states
-  ↓
-Deduplicate states
-  ↓
-Continue search
-  ↓
-GOAL?
-```
-
-The verifier returns either:
-
-### PASS
-
-```json
-{
-  "status": "PASSED",
-  "action_sequence": [
-    "JUMP_LONG",
-    "JUMP_SHORT"
-  ],
-  "metrics": {
-    "states_explored": 123,
-    "action_sequence_length": 2,
-    "critical_jumps_required": 2,
-    "alternative_solution_count": 1,
-    "max_reached_distance": 8
-  }
-}
-```
-
-or:
-
-### FAIL (Structured Counterexample)
-
-```json
-{
-  "status": "FAILED",
-  "counterexample": {
-    "status": "FAILED_REACHABILITY",
-    "reason": "JUMP_LONG trajectory collides with HAZARD",
-    "failure_node": {
-      "x": 8,
-      "y": 4
-    },
-    "attempted_action": "JUMP_LONG",
-    "collision_at": {
-      "x": 10,
-      "y": 3
-    },
-    "gap_to_goal": {
-      "dx": 2,
-      "dy": -1,
-      "manhattan_distance": 3
-    },
-    "metrics": {
-      "states_explored": 1842,
-      "max_reached_distance": 8,
-      "shortest_solution_actions": null
-    }
-  }
-}
-```
-
-When a level is physically reachable but violates constraints (e.g. fewer jumps than required or trivial walking path):
-
-```json
-{
-  "status": "FAILED",
-  "counterexample": {
-    "status": "CONSTRAINT_VIOLATION",
-    "reason": "Level solved with 1 jump, but 3 jumps are required",
-    "failure_node": { "x": 10, "y": 4 },
-    "attempted_action": null,
-    "collision_at": null,
-    "violated": {
-      "constraint": "required_jumps",
-      "required": 3,
-      "actual": 1,
-      "details": "Solution bypasses chasms via unintended floor path"
-    },
-    "metrics": {
-      "states_explored": 420,
-      "max_reached_distance": 10,
-      "shortest_solution_actions": 12
-    }
-  }
-}
-```
+Play Mode does not use a secondary continuous physics engine. The exact jump arc verified by the backend is the jump arc executed by the player.
 
 ---
 
-# Counterexample-Guided Repair
+## Authoritative BFS Verification Engine
 
-ForgeLoop's central loop is:
+The verifier (`src/verifier/BFSVerifier.ts`) exhaustively explores all reachable player states $(x, y, \text{grounded}, \text{facing})$ from the `START` position using Breadth-First Search.
 
-```text
-Candidate Level
-      ↓
-   Verify
-      ↓
-   FAILED
-      ↓
-Counterexample
-      ↓
-   LLM Repair
-      ↓
- Minimal Patch
-      ↓
- Apply Patch
-      ↓
-   Verify Again
+### Verification Lifecycle
+1. **Structural Validation**: Ensures 12×8 dimensions, valid tile vocabulary, exactly one `START`, and exactly one `GOAL`.
+2. **State Space Exploration**: Dequeues candidate states, evaluates all legal macro-actions, performs swept collision checks against `GROUND` and `HAZARD`, and deduplicates visited states.
+3. **Tracking Nearest Node**: Continuously tracks the state with the minimum Manhattan distance to `GOAL`.
+4. **Path Reconstruction**: If `GOAL` is reached, backtracks through state parents to reconstruct the optimal macro-action sequence.
+5. **Constraint Evaluation**: Verifies whether the solution satisfies required jumps, path length, and difficulty thresholds.
+
+### Verification Status Classes
+- `PASSED`: Level is reachably solvable and satisfies all declared design constraints.
+- `FAILED_REACHABILITY`: No valid action sequence reaches the `GOAL`. Emits coordinates of the closest explored state, attempted action, and collision coordinate.
+- `CONSTRAINT_VIOLATION`: The `GOAL` is reachable, but the solution violates design rules (e.g., solved in 1 jump when 3 were required).
+- `INVALID_STRUCTURE`: Level matrix violates dimension, coordinate, or boundary invariants.
+
+---
+
+## Constraint System & Calibrated Difficulty Model
+
+### Supported Constraints
+
+```typescript
+export interface LevelConstraints {
+  required_jumps: number;
+  min_path_length: number;
+  target_difficulty: "EASY" | "MEDIUM" | "HARD";
+  no_trivial_route?: boolean;
+}
 ```
 
-The repairer must return a patch rather than an entire replacement level.
+| Constraint | Declared Intent | Measured Reality | Enforcement Action |
+|---|---|---|---|
+| `required_jumps` | e.g. 3 | Count of critical jump actions in solution | Reject if $\text{actual} < \text{declared}$ |
+| `min_path_length` | e.g. 15 | Total macro-action count to reach goal | Reject if $\text{length} < \text{declared}$ |
+| `no_trivial_route` | `true` | Checks for alternative 0-jump walking paths | Reject if level bypasses platforming |
+| `target_difficulty`| `MEDIUM` | Calibrated difficulty composite score | Reject on mismatch (if enabled) |
 
-Example:
+### Calibrated Difficulty Scoring Formula
+
+ForgeLoop evaluates difficulty using a deterministic scoring formula derived from empirical search metrics:
+
+$$\text{score} = (\text{pathLength} \times 2) + (\text{criticalJumps} \times 15) + \min(30, \lfloor\text{explored} / 4\rfloor) - \min(20, \text{alternatives} \times 2)$$
+
+- **EASY**: $\text{score} \le 34$
+- **MEDIUM**: $35 \le \text{score} \le 69$
+- **HARD**: $\text{score} \ge 70$
+
+> [!NOTE]
+> This formula is a **calibrated engineering heuristic** designed for ForgeLoop's discrete 12×8 grid model. It does not claim to represent a universal, psychometrically validated human perception model.
+
+---
+
+## Surgical Patch Engine
+
+When a level fails verification, ForgeLoop does not regenerate the layout from scratch. Discarding the level destroys designer intent and aesthetic continuity.
+
+Instead, the repair model generates a bounded **surgical patch** (`src/verifier/patches.ts`):
 
 ```json
 {
   "operations": [
     {
       "type": "REPLACE_TILE",
-      "x": 10,
-      "y": 3,
+      "x": 4,
+      "y": 5,
       "newTile": "GROUND"
     }
   ]
 }
 ```
 
-The backend applies the patch and reruns the verifier.
-
-The repair loop is bounded, initially to **3 attempts**.
+### Strict Patch Validation Rules
+- **Bounds Checking**: Coordinates must lie within $x \in [0, 11]$ and $y \in [0, 7]$.
+- **Vocabulary Protection**: Patches may only place `AIR`, `GROUND`, or `HAZARD`. Patches cannot place `START` or `GOAL`.
+- **Anchor Immutability**: Any operation attempting to overwrite the level's existing `START` or `GOAL` tile is rejected.
+- **Operation Limit**: Maximum 10 operations per patch.
+- **Coordinate Uniqueness**: Duplicate edits to the same coordinate in a single patch are rejected.
+- **Immutability**: `applyPatch()` returns a new level clone; the original level instance is never mutated.
 
 ---
 
-# Design Intent and Difficulty
+## AI Generation & Intent Compilation
 
-A level is not accepted merely because it is reachable.
-
-The verifier must also evaluate the declared design intent.
-
-Relevant metrics can include:
-
-- action sequence length
-- required jumps
-- critical jumps
-- number of alternative solutions
-- search complexity
-- recovery margin
-- obstacle structure
-
-A composite difficulty metric can be used to classify a candidate as EASY, MEDIUM, or HARD.
-
-The exact thresholds should be calibrated against known fixtures rather than invented after seeing generated results.
-
-The system should eventually distinguish:
+Generative synthesis operates through an intermediate representation (IR) to prevent hallucinated grid dimensions:
 
 ```text
-PLAYABLE + WRONG DIFFICULTY
+Natural Language Intent: "Floating islands with 3 long jumps, hazardous floor"
+                         │
+                         ▼
+               ┌───────────────────┐
+               │   IntentCompiler  │
+               └─────────┬─────────┘
+                         │
+                         ▼
+               ┌───────────────────┐
+               │   LevelSpec IR    │ (Platforms & Hazards as Rectangles)
+               └─────────┬─────────┘
+                         │
+                         ▼
+               ┌───────────────────┐
+               │ compileLevelSpec  │ (Deterministic Integer Compiler)
+               └─────────┬─────────┘
+                         │
+                         ▼
+               ┌───────────────────┐
+               │  Canonical Level  │ (12×8 Tile Grid)
+               └───────────────────┘
 ```
 
-from:
+### Rectangular Intermediate Representation (`LevelSpec`)
+Rather than forcing language models to output raw ASCII characters with delicate line-length counts, models generate bounding rectangles:
 
-```text
-UNPLAYABLE
+```typescript
+export interface LevelSpec {
+  width: 12;
+  height: 8;
+  platforms: { x: number; y: number; w: number; h: number }[];
+  hazards: { x: number; y: number; w: number; h: number }[];
+  start: { x: number; y: number };
+  goal: { x: number; y: number };
+  constraints: LevelConstraints;
+}
 ```
 
-A playable but constraint-violating level produces a `CONSTRAINT_VIOLATION` result and can be repaired by the LLM.
+The deterministic function `compileLevelSpec()` translates these rectangles onto the grid, ensuring zero formatting drift.
+
+### Groq Integration & Offline Mock Fallback
+- **Live Mode**: If `GROQ_API_KEY` is present in the environment, ForgeLoop invokes Groq's high-speed inference engine running `llama-3.3-70b-versatile` with JSON schema enforcement.
+- **Offline Mock Fallback**: If `GROQ_API_KEY` is absent or the API fails, ForgeLoop automatically switches to deterministic mock models that return pre-calibrated geometric structures. This guarantees 100% demo uptime and offline developer testing.
 
 ---
 
-# AI Architecture & Intent Compilation
+## Bounded Repair Loop
 
-Generative AI in ForgeLoop has two explicit, non-overlapping roles:
+ForgeLoop orchestrates a closed synthesis-repair loop:
 
-1. **Intent Compiler & LevelSpec Synthesizer**: Converts human creative intent into structured machine constraints and geometric primitives (`LevelSpec` platform/hazard rectangles).
-2. **Surgical Counterexample Repairer**: Inspects deterministic verifier counterexamples and produces minimal, intent-preserving `LevelPatch` mutations.
-
-```text
-Human Intent: "Tense chasm jumps, no straight walk"
-                     │
-                     ▼
-           ┌───────────────────┐
-           │  Intent Compiler  │
-           └─────────┬─────────┘
-                     │ Constraints: required_jumps=3, no_trivial_route=true
-                     ▼
-           ┌───────────────────┐
-           │ LevelSpec Gen     │ (Rectangles IR: platforms, hazards, start, goal)
-           └─────────┬─────────┘
-                     │
-                     ▼
-           ┌───────────────────┐
-           │ compileLevelSpec  │ (Deterministic integer tile compiler)
-           └─────────┬─────────┘
-                     │
-                     ▼
-           ┌───────────────────┐
-           │  Zero-Trust Gate  │ (validateLevelStructure: row lengths, tiles, S/G)
-           └─────────┬─────────┘
-                     │
-                     ▼
-           ┌───────────────────┐
-           │  BFS Verifier     │
-           └─────────┬─────────┘
-                     │
-          ┌──────────┴──────────┐
-          │                     │
-       FAILED                 PASSED
-          │                     │
-   Counterexample            PLAY MODE
-          │
-          ▼
-   ┌─────────────┐
-   │ AI Repairer │ (Outputs minimal LevelPatch)
-   └─────────────┘
-```
+1. **First-Shot Generation**: Compiler produces candidate `LevelSpec` $\to$ compiled to `Level`.
+2. **Verification Gate**: `BFSVerifier` checks reachability and constraints.
+3. **If PASS**: Session completes; Play Mode is unlocked.
+4. **If FAIL**:
+   - Extract structured `Counterexample`.
+   - Pass counterexample to `LevelRepairModel`.
+   - Validate and apply `LevelPatch`.
+   - Rerun `BFSVerifier`.
+5. **Loop Termination**: The loop terminates immediately upon `PASSED` or aborts after a maximum of **3 repair attempts**.
 
 ---
 
-# Why is the LLM Needed? (Ablation Benchmark)
+## Interactive Judge Sabotage
 
-A common critique from experienced judges is: *"Why do you need an LLM if search algorithms can test playability?"*
+To prove that ForgeLoop performs authentic verification rather than playing back canned scripts, the workstation includes **Judge Sabotage Mode**.
 
-ForgeLoop answers with an empirical **Ablation Benchmark** embedded directly in the application:
+Judges can actively attack a verified level directly from the interface:
+- **`CUT_BRIDGE`**: Removes a critical platform tile between the player and goal, replacing it with `AIR`.
+- **`DROP_HAZARD`**: Drops a lethal `HAZARD` spike directly onto the player's jumping path.
 
-| Metric | First-Shot Gen | Dumb Heuristic Repair | ForgeLoop AI Repair |
-|---|---|---|---|
-| **Reachability Rate** | ~35% | ~88% (places brute-force bridges) | **~94%** |
-| **Constraint Satisfaction** | ~20% | **0%** (destroys jump constraints) | **~90%** |
-| **Intent Preservation** | High | None (turns level into trivial floor) | **High** |
-| **No-Trivial-Route Pass** | Low | **0%** (creates flat bypasses) | **~88%** |
-
-- **Without the Verifier**: Generative AI fails ~65% of the time on physical playability.
-- **Without the LLM (Naive Heuristic)**: Brute-force gap-fillers create flat walkable floors, destroying difficulty, aesthetics, and jump requirements.
-- **With ForgeLoop (LLM + Verifier)**: The LLM understands the *intent* of the jump and performs a minimal repair (e.g. nudging a platform 1 tile closer or adding a stepping stone) that preserves both reachability *and* gameplay constraints.
+### The Sabotage → Repair Proof
+1. The judge clicks **Cut Bridge** on a verified level.
+2. Within `<5 ms`, the verifier catches the breach and updates the UI with a red collision marker and counterexample telemetry.
+3. The judge clicks **[ TRIGGER AUTONOMOUS REPAIR ]**.
+4. The backend passes the new counterexample to the repairer, generates a surgical bypass patch, re-verifies the level, and achieves `PASSED` in `<400 ms`.
 
 ---
 
-# Game Tech Pipeline: Rules-Change Regression
+## Physics Regression Bench
 
-ForgeLoop represents an automated **game production pipeline** tool. In commercial development, character physics are tweaked continuously. 
+Game studios frequently balance character movement parameters during production. ForgeLoop serves as a **rules-change regression engine**:
 
-Through ForgeLoop's parametric physics (`PhysicsConfig`):
-1. A designer changes `longJumpDistance` from 4 to 3 (a jump nerf).
-2. ForgeLoop runs automated regression across an entire level library.
-3. Levels invalidated by the balance change are immediately flagged with counterexamples.
-4. ForgeLoop automatically synthesizes and verifies updated layouts calibrated to the new character parameters.
-
----
-
-# Judge Sabotage Mode (Interactive Live Proof)
-
-During the demo, judges can test the system's resilience live:
-1. Click **Sabotage**: Click any platform tile to turn it into `HAZARD` or delete it.
-2. In `<5 ms`, ForgeLoop's verifier detects the broken trajectory and displays the counterexample.
-3. The AI repairer triggers immediately, repairing the detour path in front of the judge's eyes.
-4. Click **Play Now** to play the repaired level immediately.
+1. A designer changes `longJumpDistance` from $4 \to 3$ (a jump nerf).
+2. The user executes **Run Regression Verification**.
+3. ForgeLoop re-evaluates the existing level using the modified `PhysicsConfig`.
+4. If a previously solvable gap now exceeds the player's 3-tile reach, the verifier flags the regression:
+   ```text
+   STATUS: FAILED // POST_REGRESSION
+   Reason: Gap distance exceeds longJumpDistance=3
+   Failure Node: (4, 4)
+   ```
+5. The designer can trigger autonomous repair to reposition platforms to fit the new physics profile.
 
 ---
 
-# Frontend Experience
+## Web Workstation Interface
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ FORGELOOP GAME-TECH PIPELINE              Attempt 1 / 3     │
-├────────────────────────────────┬────────────────────────────┤
-│ INTENT COMPILATION             │ VERIFIER DIAGNOSTICS       │
-│ "Tense chasm jumps, no walk"   │                            │
-│  → required_jumps: 3           │ ✗ FAILED REACHABILITY      │
-│  → no_trivial_route: true      │                            │
-│  → difficulty: MEDIUM          │ Closest Node: (8, 4)       │
-├────────────────────────────────┤ Gap to Goal: dx=2, dy=0    │
-│ LEVEL CANVAS                   │ Action: JUMP_LONG          │
-│   S ───► ───► [X]              │ Collision: HAZARD at (10,4)│
-│               ▲                ├────────────────────────────┤
-│         Red Collision Marker   │ [ SABOTAGE ] [ NERF JUMP ] │
-├────────────────────────────────┴────────────────────────────┤
-│ AI REPAIRING (Attempt #1): Replacing (10, 4) with GROUND... │
-└─────────────────────────────────────────────────────────────┘
-```
+ForgeLoop's user interface is styled as a precision **Industrial Editorial & Swiss Technical Workstation** (warm architectural paper `#F3F1EB`, technical cobalt `#1A4476`, rust crimson `#A52828`, and precision $1\text{px}$ dividers `#C6C2B6`).
 
-After repair:
+### Core Panels
+- **CAD Drafting Canvas (`LevelCanvas.tsx`)**: Displays the 12×8 grid with $X/Y$ coordinate axis rulers, technical cross-hatching, hazard stripes, failure coordinate vectors, and patch diff overlays.
+- **Verification Telemetry (`VerificationPanel.tsx`)**: High-contrast engineering readout showing explored state counts, solution action sequences, and exact counterexample coordinates.
+- **CEGIS Event Trace (`RepairTimeline.tsx`)**: Chronological sequential debugger log displaying numbered events (`01 INTENT`, `02 SPEC`, `03 VERIFY`, `04 COUNTEREXAMPLE`, `05 PATCH`, `06 RE-VERIFY`, `07 PASS`).
+- **Constraint Matrix (`ConstraintPanel.tsx`)**: Tabular comparison of declared constraints against measured solution metrics.
+- **Judge Sabotage Panel (`JudgeSabotagePanel.tsx`)**: Failure injection switches (`CUT BRIDGE`, `DROP HAZARD`) and the manual autonomous repair trigger.
+- **Physics Bench (`PhysicsRegressionPanel.tsx`)**: Sliders for jump reach, apex, and gravity with instant regression testing.
+- **Interactive Play Mode (`PlayMode.tsx`)**: Embedded playable canvas unlocked only after verification passes.
+- **Benchmark Panel (`BenchmarkPanel.tsx`)**: Comparative ablation table evaluating first-shot generation vs. repair.
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ FORGELOOP GAME-TECH PIPELINE              Attempt 2 / 3     │
-├────────────────────────────────┬────────────────────────────┤
-│ INTENT COMPILATION             │ VERIFIER DIAGNOSTICS       │
-│  ✓ 3 required jumps satisfied  │                            │
-│  ✓ min path length ≥ 15        │ ✓ VERIFIED PLAYABLE        │
-│  ✓ no trivial route confirmed  │                            │
-│  ✓ difficulty: MEDIUM          │ Search time: 0.8 ms        │
-├────────────────────────────────┴────────────────────────────┤
-│                      [ PLAY LEVEL NOW ]                     │
-└─────────────────────────────────────────────────────────────┘
-```
+<!-- Screenshot Placeholders -->
+<!-- ![ForgeLoop CAD Workstation](docs/assets/workstation.png) -->
+<!-- ![Counterexample Telemetry and Repair](docs/assets/repair-loop.png) -->
+<!-- ![Judge Sabotage Mode](docs/assets/sabotage-repair.png) -->
+> *Screenshots can be added to `docs/assets/`.*
 
 ---
 
-# Demo Flow (2.5 Minutes)
-
-### 0:00-0:20 — Hook & Intent Compilation
-> *"Generative AI creates levels in seconds, but cannot guarantee they are beatable or respect game-design rules. ForgeLoop turns level generation into a closed engineering loop."*
-Show the **Intent Compilation Panel** mapping human creative phrases into hard numerical constraints.
-
-### 0:20-0:50 — Generation & Instant Verification Challenge
-Generate level via `LevelSpec` rectangles. Deterministic verifier runs in <1 ms.
-**Failure detected:** Chasm too wide; counterexample marks closest reachable state (8, 4) and collision point.
-
-### 0:50-1:15 — Surgical AI Repair
-AI repairer analyzes counterexample and proposes a 1-tile patch. Re-verification succeeds across all constraints.
-
-### 1:15-1:45 — The Judge Sabotage Moment (Live Interactive Proof)
-> *"Let's prove this is running real verification, not a pre-recorded sequence."*
-Use the UI Sabotage tool to drop a hazard right onto the agent's leap. The verifier flags it instantly; AI synthesizes a detour platform live.
-
-### 1:45-2:05 — Rules-Change Regression & Ablation Table
-Reduce jump distance from 4 to 3 via `PhysicsConfig`. Re-verify the level suite automatically. Show the quantitative ablation table proving why LLM repair is necessary.
-
-### 2:05-2:30 — Play Mode & Closing
-Switch to Play Mode. Guide the character through the verified level using discrete macro-action controls.
-> *"ForgeLoop: Generate, challenge, repair, verify, regress."*
-
----
-
-# MVP Scope
-
-## Must Have
-
-- deterministic discrete game model
-- level JSON DSL
-- BFS verifier
-- actionable counterexample
-- deterministic patch application
-- fail → patch → pass loop
-- required-jump constraint
-- minimum-path constraint
-- difficulty profile
-- LLM level generator
-- LLM repairer
-- structured outputs
-- React level renderer
-- simulation visualization
-- play mode
-- known-good fallback fixture
-
-## Should Have
-
-- verification timeline
-- animated agent path
-- compact metrics panel
-- repair diff visualization
-- multiple repair attempts
-- polished transitions
-- benchmark display
-
-## Nice to Have
-
-- level export
-- level sharing
-- persistent history
-- Hyper3D integration
-- 3D prototype
-- engine export
-- advanced procedural generation
-
-## Do Not Build During MVP
-
-- authentication
-- user accounts
-- multiplayer
-- real-time collaboration
-- payment system
-- complex databases
-- microservices
-- Kubernetes
-- full game engine
-- continuous physics engine
-- large-scale agent swarm
-
----
-
-# Development Roadmap
-
-## Phase 1 — Headless verifier
-
-Status: **started**
-
-Current implementation includes:
-
-```text
-src/types.ts
-src/verifier/PhysicsEngine.ts
-src/verifier/BFSVerifier.ts
-tests/run.mjs
-```
-
-Run:
-
-```bash
-npm install
-npm test
-```
-
-The verifier must remain independently testable before the AI and frontend are introduced.
-
-## Phase 2 — Patch engine
-
-Implement:
-
-- `LevelPatch` validation
-- deterministic patch application
-- patch tests
-- fail → patch → pass fixture
-
-## Phase 3 — Constraint engine
-
-Implement:
-
-- required jumps
-- minimum path length
-- alternative routes
-- difficulty profile
-- constraint violations
-
-## Phase 4 — AI generator
-
-Implement:
-
-- model client
-- structured `Level` output
-- generation prompt
-- schema validation
-- retry handling
-
-## Phase 5 — AI repairer
-
-Implement:
-
-- counterexample prompt
-- structured `LevelPatch`
-- patch validation
-- bounded repair loop
-
-## Phase 6 — Backend orchestration
-
-Implement:
-
-- session state
-- API endpoints
-- WebSocket event protocol
-- end-to-end generation/verification/repair pipeline
-
-## Phase 7 — Frontend
-
-Implement:
-
-- level visualization
-- agent animation
-- counterexample display
-- patch visualization
-- verification metrics
-- play mode
-
-## Phase 8 — Polish
-
-Focus only on:
-
-- clarity
-- animation
-- responsiveness
-- typography
-- status states
-- demo reliability
-
-## Phase 9 — Submission
-
-Prepare:
-
-- live demo
-- GitHub repository
-- README
-- architecture diagram
-- demo video
-- short project description
-
----
-
-# Testing Strategy
-
-## Unit tests
-
-Test deterministic physics transitions individually.
-
-## Verifier tests
-
-Maintain fixtures for:
-
-- simple pass
-- simple fail
-- hazard collision
-- boundary failure
-- jump failure
-- multiple paths
-- constraint violation
-
-## Patch tests
-
-Test:
-
-- valid patch
-- invalid coordinate
-- invalid tile
-- START preservation
-- GOAL preservation
-- dimension preservation
-
-## Integration test
-
-The most important integration test is:
-
-```text
-BROKEN LEVEL
-    ↓
-VERIFIER
-    ↓
-COUNTEREXAMPLE
-    ↓
-PATCH
-    ↓
-APPLY
-    ↓
-VERIFIER
-    ↓
-PASSED
-```
-
-This path must work without any LLM dependency before the live AI loop is trusted.
-
----
-
-# Reliability and Fallbacks
-
-External model APIs introduce latency and availability risk.
-
-ForgeLoop therefore maintains deterministic fixtures for the complete demo.
-
-A fallback should be:
-
-```text
-known broken level
-→ known counterexample
-→ known patch
-→ deterministic verification pass
-```
-
-The fallback is a real execution path through the verifier, not fabricated output.
-
-The live demo should be designed so the core product remains understandable even if an external model call fails.
-
----
-
-# Performance Targets
-
-For hackathon-sized levels:
-
-| Component | Target |
-|---|---:|
-| Deterministic verification | < 500 ms |
-| Patch application | effectively instantaneous |
-| UI update | responsive / streamed |
-| LLM generation | provider-dependent |
-| LLM repair | provider-dependent |
-
-The `<500 ms` target applies to the deterministic verifier, not external model calls.
-
-If verifier performance degrades, reduce the state-space dimensions or action complexity before adding infrastructure.
-
----
-
-# Repository Structure
-
-Current Phase 1 structure:
+## Repository Structure
 
 ```text
 forgeloop/
 ├── src/
-│   ├── types.ts
-│   ├── index.ts
-│   └── verifier/
-│       ├── PhysicsEngine.ts
-│       └── BFSVerifier.ts
-├── tests/
-│   └── run.mjs
-├── docs/
-│   └── ANTIGRAVITY_PHASE1.md
-├── package.json
-├── tsconfig.json
-├── .gitignore
-├── CLAUDE.md
-└── README.md
-```
-
-Target structure after full development:
-
-```text
-forgeloop/
-├── src/
-│   ├── types.ts
-│   ├── index.ts
+│   ├── types.ts                      # Canonical shared contracts, types, and schemas
+│   ├── index.ts                      # Core library export entrypoint
 │   ├── verifier/
-│   │   ├── PhysicsEngine.ts
-│   │   ├── BFSVerifier.ts
-│   │   ├── constraints.ts
-│   │   ├── patches.ts
-│   │   └── fixtures.ts
+│   │   ├── PhysicsEngine.ts          # Deterministic discrete physics simulator
+│   │   ├── BFSVerifier.ts            # Authoritative BFS state-space reachability verifier
+│   │   ├── constraints.ts            # Constraint evaluator and calibrated difficulty model
+│   │   ├── patches.ts                # Surgical LevelPatch validator and immutable applicator
+│   │   └── fixtures.ts               # Calibrated level fixtures for deterministic testing
 │   ├── ai/
-│   │   ├── generator.ts
-│   │   ├── repairer.ts
-│   │   ├── prompts.ts
-│   │   └── schemas.ts
+│   │   ├── schemas.ts                # JSON schemas and parser/validator for LevelSpec & patches
+│   │   ├── prompts.ts                # System prompts for intent compilation and surgical repair
+│   │   ├── compiler.ts               # IntentCompiler: natural language -> LevelSpec IR
+│   │   ├── generator.ts              # LevelGenerator: compiles LevelSpec into discrete Level
+│   │   ├── repairer.ts               # LevelRepairer: converts counterexamples into LevelPatches
+│   │   └── benchmark.ts              # 6-scenario empirical ablation benchmark harness
 │   ├── server/
-│   │   ├── server.ts
-│   │   ├── protocol.ts
-│   │   └── session.ts
+│   │   ├── protocol.ts               # Client commands and SSE server events contracts
+│   │   ├── session.ts                # ForgeSession state machine and event emitter
+│   │   ├── server.ts                 # ForgeServer: HTTP REST API and SSE stream gateway
+│   │   └── start.ts                  # Production server startup CLI entrypoint
 │   └── shared/
-│       └── validation.ts
-├── web/
+│       └── validation.ts             # Level matrix structural validator
+├── web/                              # React 19 + Vite Frontend Application
+│   ├── index.html                    # Root HTML document
+│   ├── vite.config.ts                # Vite bundler configuration
 │   └── src/
-│       ├── App.tsx
+│       ├── App.tsx                   # Main Workstation layout and tab controller
+│       ├── index.css                 # Industrial Editorial / Swiss Technical design tokens
 │       ├── components/
-│       │   ├── LevelCanvas.tsx
-│       │   ├── VerificationPanel.tsx
-│       │   ├── RepairTimeline.tsx
-│       │   ├── ConstraintPanel.tsx
-│       │   └── PlayMode.tsx
+│       │   ├── LevelCanvas.tsx       # CAD drafting viewport with coordinate rulers and overlays
+│       │   ├── VerificationPanel.tsx # Engineering telemetry readout for verification & failures
+│       │   ├── ConstraintPanel.tsx   # Declared vs. measured constraint matrix
+│       │   ├── RepairTimeline.tsx    # Sequential CEGIS debugger event log
+│       │   ├── JudgeSabotagePanel.tsx# Live failure injection and repair trigger station
+│       │   ├── PhysicsRegressionPanel.tsx # Parametric physics regression test bench
+│       │   ├── PlayMode.tsx          # Interactive player canvas sharing verifier physics
+│       │   └── BenchmarkPanel.tsx    # Ablation comparison modal table
 │       └── lib/
-│           └── websocket.ts
+│           ├── api.ts                # HTTP REST API client functions
+│           └── events.ts             # Server-Sent Events (SSE) connection manager
 ├── tests/
-├── docs/
-├── CLAUDE.md
-├── README.md
-├── package.json
-└── tsconfig.json
+│   ├── run.mjs                       # Verifier and physics unit tests
+│   ├── patches.test.mjs              # Patch engine unit and integration tests
+│   ├── constraints.test.mjs          # Constraint and difficulty evaluation tests
+│   ├── generator.test.mjs            # AI compiler and schema validation tests
+│   ├── repairer.test.mjs             # AI repairer and ablation benchmark tests
+│   ├── server.test.mjs               # ForgeServer REST, SSE, and session isolation tests
+│   └── live-groq-e2e.test.mjs        # End-to-end live Groq API validation test
+├── docs/                             # Documentation assets
+├── package.json                      # Root npm scripts and dependencies
+├── tsconfig.json                     # TypeScript compiler configuration
+├── CLAUDE.md                         # Architecture reference and agent instructions
+├── AGENTS.md                         # Multi-agent operating rules
+├── SUBMISSION.md                     # Hackathon submission kit and presentation script
+└── README.md                         # This document
 ```
 
 ---
 
-# Local Development
+## Installation
 
-Requirements:
+### Prerequisites
+- **Node.js**: Version 20.0.0 or higher
+- **npm**: Version 9.0.0 or higher
 
-- Node.js 20+
-- npm
-
-Install:
+### Install Dependencies
 
 ```bash
+# 1. Install root backend dependencies
 npm install
+
+# 2. Install web frontend dependencies
+npm install --prefix web
 ```
 
-Typecheck:
+---
+
+## Environment Variables
+
+Create a `.env` file in the project root:
 
 ```bash
-npm run typecheck
+# Optional: Groq Cloud API Key for live LLM inference
+# If omitted or invalid, ForgeLoop automatically operates in deterministic mock mode.
+GROQ_API_KEY=gsk_your_api_key_here
 ```
 
-Build:
+| Variable | Required? | Default | Description |
+|---|:---:|:---:|---|
+| `GROQ_API_KEY` | Optional | `undefined` | Enables live Groq `llama-3.3-70b-versatile` intent compilation and repair. When absent, the system uses deterministic mock models. |
+| `PORT` | Optional | `3000` | Port for the backend HTTP REST and SSE server. |
+
+---
+
+## Running Locally
+
+### Development Mode (Concurrent Terminals)
+
+**Terminal 1: Start Backend Server (Port 3000)**
+```bash
+npm start
+```
+*Builds TypeScript and starts the HTTP REST & SSE server on `http://localhost:3000`.*
+
+**Terminal 2: Start Frontend Workstation (Port 5173)**
+```bash
+npm run dev --prefix web
+```
+*Launches the Vite development server on `http://localhost:5173`.*
+
+Open **http://localhost:5173** in your browser.
+
+### Production Build
 
 ```bash
-npm run build
+# Compile backend TypeScript and bundle frontend for production
+npm run build:all
 ```
 
-Test:
+---
 
+## API Reference
+
+The backend `ForgeServer` provides native HTTP REST endpoints:
+
+| Method | Route | Description |
+|---|---|---|
+| `GET` | `/health` | Health check endpoint returning `{ status: "ok", uptime }`. |
+| `POST` | `/api/sessions` | Creates and starts a new level session. Body: `{ intent: string, sync?: boolean }`. |
+| `GET` | `/api/sessions/:id` | Returns the current session snapshot, level matrix, and event history. |
+| `GET` | `/api/sessions/:id/events` | **Server-Sent Events (SSE)** endpoint. Streams live session events to client. |
+| `POST` | `/api/sessions/:id/sabotage` | Injects a structural failure into an active level. Body: `{ action: "CUT_BRIDGE" \| "DROP_HAZARD" }`. |
+| `POST` | `/api/sessions/:id/repair` | Triggers autonomous surgical repair on a damaged or failed level. |
+| `POST` | `/api/command` | Unified command gateway executing validated `ClientCommand` payloads. |
+| `GET` | `/api/benchmark` | Executes the 6-scenario empirical ablation benchmark and returns telemetry. |
+
+---
+
+## Event Stream (SSE Protocol)
+
+Clients subscribe to `/api/sessions/:id/events` to receive real-time, strongly-typed execution events:
+
+```text
+SESSION_STARTED          -> Session initialized with unique ID
+INTENT_RECEIVED          -> Natural language prompt captured
+SPEC_GENERATED           -> Rectangular LevelSpec compiled by AI
+LEVEL_GENERATED          -> Canonical 12×8 Level matrix compiled
+VERIFICATION_STARTED     -> BFS verifier begins reachable state exploration
+VERIFICATION_COMPLETED   -> Telemetry emitted: PASSED or FAILED + Counterexample
+REPAIR_STARTED           -> AI repairer invoked with failure coordinates
+PATCH_PROPOSED           -> Surgical 1–3 tile delta synthesized
+PATCH_APPLIED            -> Level matrix immutably updated
+REPAIR_COMPLETED         -> Repair attempt cycle finished
+SESSION_COMPLETED        -> Final level verified playable; Play Mode unlocked
+ERROR                    -> Schema or boundary error emitted
+```
+
+---
+
+## Testing
+
+ForgeLoop maintains a zero-dependency test harness covering 100% of core verification, physics, patch, generator, and server functionality.
+
+### Run All Test Suites
 ```bash
 npm test
 ```
 
-The verifier should be executable without API keys.
+This single command compiles TypeScript and sequentially executes all 6 test suites:
+1. `tests/run.mjs`: Core BFS verifier, integer physics transitions, swept collisions, and performance benchmarks.
+2. `tests/patches.test.mjs`: Patch engine validation, bounds checks, START/GOAL preservation, and fail $\to$ patch $\to$ pass fixtures.
+3. `tests/constraints.test.mjs`: Difficulty scoring monotonicity, required jumps, min path length, and no-trivial-route enforcement.
+4. `tests/generator.test.mjs`: Strict LevelSpec schema checks, rectangular compilation, and isolated model client interfaces.
+5. `tests/repairer.test.mjs`: Bounded repair loop, counterexample ingestion, zero-trust patch checks, and benchmark comparison.
+6. `tests/server.test.mjs`: HTTP REST endpoints, protocol command validation, session state isolation, sabotage, and SSE event streaming.
 
-AI integration is an additional layer and should never be required for deterministic verifier tests.
+### Live Groq E2E Test
+```bash
+npm run test:live
+```
+*Validates the live remote Groq API against `llama-3.3-70b-versatile` (requires `GROQ_API_KEY` in `.env`).*
 
----
-
-# Engineering Rules for AI Coding Agents
-
-Whether development is performed through Antigravity, Claude Code, or another coding agent:
-
-1. Read `CLAUDE.md` before changing architecture.
-2. Preserve the verifier as the authoritative source of truth.
-3. Do not replace discrete physics with a general-purpose physics engine.
-4. Do not generate entire replacement levels during repair.
-5. Keep patches deterministic and validated.
-6. Add tests with every verifier change.
-7. Do not introduce dependencies without a concrete reason.
-8. Keep the AI layer replaceable.
-9. Keep the frontend replaceable.
-10. Never sacrifice deterministic verification for demo convenience.
-11. Never fake a successful verification result.
-12. Prefer small, reversible changes.
-13. Run `npm test` after core changes.
-14. Keep the application usable even when the LLM is unavailable.
+### Frontend Build & Typecheck
+```bash
+npm run build:web
+```
+*Typechecks TypeScript and builds the production bundle via Vite.*
 
 ---
 
-# Judge-Facing Technical Narrative
+## Ablation Benchmark Report
 
-The concise technical explanation is:
+To evaluate whether generative AI repair provides value over naive heuristics or raw unverified generation, ForgeLoop includes an embedded benchmark harness (`src/ai/benchmark.ts`).
 
-> **ForgeLoop applies counterexample-guided synthesis to game-level generation. A generative model translates high-level design intent into a structured level. A deterministic game model then searches the level for gameplay failures and constraint violations. Instead of returning a vague error, the verifier produces a structured counterexample. An AI repairer converts that counterexample into a minimal level patch, which is deterministically applied and verified again.**
+### Current Six-Scenario Deterministic Engineering Benchmark
+*Tested across 6 calibrated layout scenarios (long gaps, hazard corridors, wall obstructions, height steps):*
 
-The core contribution is not an LLM generating a level.
+| Strategy | Scenarios Tested | Initial Failures | Final Pass Count | Success Rate | Average Attempts | Average Operations |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **First-Shot Generation** | 6 | 4 | 2 | **33.3%** | 0.00 | 0.00 |
+| **Naive Heuristic (Brute Force)** | 6 | 4 | 3 | **50.0%** | 0.67 | 0.33 |
+| **ForgeLoop AI Repair (CEGIS)** | 6 | 4 | 4 | **66.7%** | 1.33 | 2.33 |
 
-It is the closed loop:
+- **First-Shot Generation Fails Often**: Unverified generative models produce unplayable geometry in ~66% of complex scenarios.
+- **Naive Heuristics Destroy Gameplay**: Dumb gap-filling heuristics bridge chasms with flat floor tiles, violating jump requirements and rendering the level trivial.
+- **ForgeLoop CEGIS Preserves Intent**: The counterexample-guided repair model places targeted stepping stones or removes specific obstructions, satisfying both reachability and design constraints.
+
+> [!NOTE]
+> These figures represent our **current six-scenario deterministic engineering benchmark**. They serve as an internal regression baseline, not a generalized statistical claim across all possible game topologies.
+
+---
+
+## Current Verification Status
+
+- **Backend**: **6/6 test suites passing** (100% assertions satisfied).
+- **Frontend**: Production build passes with **0 TypeScript and 0 Vite bundling errors**.
+- **Performance**: Deterministic BFS verification runs in **$<5\text{ ms}$** per level (comfortably below the 500ms target).
+- **Working Tree**: Clean on `main`.
+
+---
+
+## Limitations
+
+Technical integrity requires honest documentation of constraints:
+
+1. **Discrete Grid vs. Continuous Physics**: ForgeLoop models discrete integer platformer mechanics. It does not simulate continuous Newtonian rigid bodies, floating-point vectors, momentum conservation, or friction.
+2. **Model-Bounded Solvability**: "Verified playable" means provably reachable under ForgeLoop's discrete transition rules and declared constraints. It is not an absolute mathematical guarantee for arbitrary commercial game engines.
+3. **Calibrated Difficulty Heuristic**: The difficulty scoring system is a deterministic heuristic tuned for 12×8 platformers. It cannot measure psychological factors such as visual distraction or player dexterity.
+4. **LLM Non-Determinism**: Live LLMs can generate malformed or unhelpful patches. ForgeLoop protects itself using strict schema validation and deterministic fallbacks, but live model performance remains dependent on external API latency and stability.
+5. **Aesthetics & Fun**: The verifier only proves physical solvability and constraint satisfaction. It cannot verify whether an art style is aesthetically pleasing or whether a gameplay sequence is emotionally satisfying.
+
+---
+
+## Why This Is Different
 
 ```text
-Intent
- ↓
-Synthesis
- ↓
-Executable Verification
- ↓
-Counterexample
- ↓
-Repair
- ↓
-Re-verification
+TRADITIONAL GENERATIVE WORKFLOW
+User Prompt ──► LLM ──► Game Level ──► Hope It Works ──► Human Finds Bugs
+
+FORGELOOP CEGIS WORKFLOW
+User Prompt ──► LLM ──► LevelSpec ──► BFS Verifier ──► Counterexample ──► AI Patch ──► Re-Verify ──► Verified Level
 ```
 
----
+Most AI game demos present an open loop: a prompt goes in, an asset comes out, and the user is left to discover whether it functions.
 
-# Known Limitations
-
-ForgeLoop's hackathon prototype deliberately operates under a simplified discrete game model.
-
-It does not claim to model:
-
-- continuous physics
-- complex collision meshes
-- animation timing
-- network latency
-- human reaction time
-- production engine behavior
-- all possible player strategies
-
-A successful verification means:
-
-> **A valid action sequence exists under ForgeLoop's declared game model and the requested constraints are satisfied.**
-
-This limitation should be stated clearly when discussing future production deployment.
+ForgeLoop closes the engineering loop: the model's output is treated as untrusted input, subjected to rigorous spatial analysis, and repaired using mathematical evidence before a player ever touches the keyboard.
 
 ---
 
-# Future Direction
+## Demo Walkthrough Flow
 
-The architecture can later be extended to real game engines without changing the conceptual loop:
+For hackathon judges and evaluators, the recommended live demonstration sequence takes under 3 minutes:
 
-```text
-High-level intent
-       ↓
-AI synthesis
-       ↓
-Production game runtime
-       ↓
-Automated gameplay agents
-       ↓
-Telemetry / counterexamples
-       ↓
-AI repair
-       ↓
-Rebuild
-       ↓
-Regression verification
-```
-
-Potential future capabilities include:
-
-- 3D level synthesis
-- real engine integration
-- asset generation
-- procedural environment generation
-- automated game QA
-- balance testing
-- difficulty targeting
-- regression testing
-- player-model simulation
-- production pipeline automation
-
-These are future directions, not MVP requirements.
+1. **Review Initial Intent**: Observe the default prompt (*"A precision platformer requiring three jumps across dangerous chasms"*).
+2. **Inspect First-Shot Failure**: Point out the intentional $(2,6) \to (3,6)$ reachability collision where the AI blocked its own path.
+3. **Examine Counterexample**: Show the verifier telemetry displaying the exact failure node, collision coordinate, and Manhattan gap distance.
+4. **Trigger Autonomous Repair**: Click **[ TRIGGER AUTONOMOUS REPAIR ]** and watch the sequential trace apply the surgical tile patch and achieve `PASSED` in real time.
+5. **Interactive Play**: Switch to **Play Mode** and navigate the character through the verified level using `Arrow Keys` and `Z/X` jump controls.
+6. **Judge Sabotage**: Open the Sabotage panel, click **Cut Bridge**, and watch the verifier instantly flag the broken trajectory. Click **Trigger Repair** to watch ForgeLoop heal the level live.
+7. **Physics Regression**: Open the **Physics Bench**, change `Long Jump Distance` from 4 to 3, and run regression to demonstrate automated broken-level detection.
 
 ---
 
-# Definition of Done
+## Hackathon Context
 
-ForgeLoop is ready for the hackathon demo when:
+ForgeLoop is submitted to the **Game Tech Track** of the **Tencent × Arcade AI Hackathon**.
 
-- [ ] verifier is deterministic
-- [ ] core verifier tests pass
-- [ ] verifier runs comfortably below 500 ms on demo levels
-- [ ] patch engine works
-- [ ] broken level can be repaired deterministically
-- [ ] design constraints are machine-checked
-- [ ] generator produces schema-valid levels
-- [ ] repairer produces schema-valid patches
-- [ ] repair attempts are bounded
-- [ ] frontend shows the complete loop
-- [ ] counterexample is visually tied to the failure
-- [ ] patch changes are visible
-- [ ] verified level is playable
-- [ ] deterministic fallback exists
-- [ ] deployment works
-- [ ] README and architecture documentation are complete
-- [ ] demo fits within 2–3 minutes
+The project is intentionally developed as **game development infrastructure and production tooling** rather than a consumer game. It addresses core track themes:
+- World generation and level synthesis.
+- Simulation and deterministic state-space exploration.
+- Developer tools and automated QA pipelines.
 
-Priority order:
-
-```text
-Verifier correctness
-        ↓
-End-to-end loop
-        ↓
-Demo clarity
-        ↓
-AI quality
-        ↓
-UX polish
-        ↓
-Optional features
-```
+*Note: ForgeLoop is an independent hackathon entry submitted to the competition and is not an official product of Tencent or Arcade.*
 
 ---
 
-## Project Status
+## Roadmap
 
-**Current milestone:** Phase 1 — deterministic headless verifier.
+Future engineering directions for ForgeLoop:
+- **3D Navigation Meshes**: Extending discrete BFS search to 3D navmesh jump-link reachability.
+- **Engine Exporters**: Exporting verified levels directly into Godot 4 and Unity scene formats.
+- **Procedural Chunk Stacking**: Verifying endless-runner level chunks for continuous solvability across random stitch points.
+- **Custom Player Trajectory Profiles**: Allowing designers to import custom jump curves and hitboxes via JSON.
 
-The next milestone is **Phase 2 — deterministic patch application and fail → patch → pass integration**.
+---
 
-Do not move to frontend polish until that loop is reliable.
+## License & Notes
+
+- **License**: Not yet specified (All rights reserved during hackathon judging).
+- **Core Principle**: AI proposes. The game model verifies. Counterexamples drive repair.
