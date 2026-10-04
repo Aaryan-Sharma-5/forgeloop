@@ -31,7 +31,7 @@ export const PhysicsRegressionPanel: React.FC<PhysicsRegressionPanelProps> = ({
   };
 
   const handlePresetNerf = async () => {
-    setLongJump(3); // Nerf long jump from 4 to 3
+    setLongJump(3);
     try {
       setLoading(true);
       await onRegressPhysics({
@@ -65,85 +65,118 @@ export const PhysicsRegressionPanel: React.FC<PhysicsRegressionPanelProps> = ({
   };
 
   return (
-    <div className="panel physics-panel">
-      <div className="panel-header">
-        <div className="panel-title">Parametric Rules-Change Regression</div>
-        <span className="physics-badge">Game Tech CI/CD</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, color: "var(--ink-secondary)" }}>
+          PHYSICS REGRESSION // TEST BENCH
+        </span>
+        <span className="badge badge-idle">MODEL INVALIDATION</span>
       </div>
 
-      <p className="panel-desc">
-        Test automated regression by nerfing engine physics to verify if previously published levels break:
+      <p style={{ fontSize: 11, color: "var(--ink-secondary)", lineHeight: 1.4 }}>
+        Perturb the underlying platformer physics constants to evaluate if previously verified levels break under engine rule regressions:
       </p>
 
-      <div className="sliders-grid">
-        <div className="slider-group">
-          <label>
-            Short Jump Distance: <strong>{shortJump} tiles</strong>
-          </label>
-          <input
-            type="range"
-            min={1}
-            max={3}
-            value={shortJump}
-            disabled={disabled || loading}
-            onChange={(e) => setShortJump(Number(e.target.value))}
-          />
+      {/* Bench Parameters */}
+      <div style={{
+        background: "var(--bg-surface-elevated)",
+        border: "1px solid var(--border-rule)",
+        borderRadius: "var(--radius-sm)",
+        padding: 12,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700 }}>
+            SHORT JUMP REACH
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 800 }}>{shortJump} TILES</span>
+            <input
+              type="range"
+              min={1}
+              max={3}
+              value={shortJump}
+              disabled={disabled || loading}
+              onChange={(e) => setShortJump(Number(e.target.value))}
+            />
+          </div>
         </div>
 
-        <div className="slider-group">
-          <label>
-            Long Jump Distance: <strong>{longJump} tiles</strong>
-          </label>
-          <input
-            type="range"
-            min={1}
-            max={5}
-            value={longJump}
-            disabled={disabled || loading}
-            onChange={(e) => setLongJump(Number(e.target.value))}
-          />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700 }}>
+            LONG JUMP REACH
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 800 }}>{longJump} TILES</span>
+            <input
+              type="range"
+              min={1}
+              max={5}
+              value={longJump}
+              disabled={disabled || loading}
+              onChange={(e) => setLongJump(Number(e.target.value))}
+            />
+          </div>
         </div>
 
-        <div className="slider-group">
-          <label>
-            Gravity Step: <strong>{gravity} tile/step</strong>
-          </label>
-          <input
-            type="range"
-            min={1}
-            max={2}
-            value={gravity}
-            disabled={disabled || loading}
-            onChange={(e) => setGravity(Number(e.target.value))}
-          />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700 }}>
+            GRAVITY FALL RATE
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 800 }}>{gravity} TILE/STEP</span>
+            <input
+              type="range"
+              min={1}
+              max={2}
+              value={gravity}
+              disabled={disabled || loading}
+              onChange={(e) => setGravity(Number(e.target.value))}
+            />
+          </div>
         </div>
       </div>
 
-      <div className="physics-buttons">
+      {/* Preset Bench Controls */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
         <button
-          className="btn btn-secondary"
-          onClick={handleApply}
+          className="btn btn-secondary btn-sm"
+          onClick={() => void handleResetStandard()}
           disabled={disabled || loading}
         >
-          {loading ? "Re-verifying..." : "Apply Custom Rules"}
+          STANDARD (4T)
         </button>
 
         <button
-          className="btn btn-warning"
-          onClick={handlePresetNerf}
+          className="btn btn-danger btn-sm"
+          onClick={() => void handlePresetNerf()}
           disabled={disabled || loading}
-          title="Simulates balance patch nerfing Long Jump distance from 4 to 3"
+          title="Reduces long jump reach to 3 tiles to trigger a physics reachability failure"
         >
-          Nerf Jump (4 → 3)
+          NERFED (3T)
         </button>
 
         <button
-          className="btn btn-outline"
-          onClick={handleResetStandard}
+          className="btn btn-primary btn-sm"
+          onClick={() => void handleApply()}
           disabled={disabled || loading}
         >
-          Reset Standard
+          {loading ? "APPLYING..." : "APPLY CUSTOM"}
         </button>
+      </div>
+
+      <div style={{
+        padding: "8px 10px",
+        background: "var(--bg-surface-elevated)",
+        border: "1px solid var(--border-subtle)",
+        borderRadius: "var(--radius-sm)",
+        fontFamily: "var(--font-mono)",
+        fontSize: 10,
+        color: "var(--ink-muted)",
+      }}>
+        NOTE: Changing the movement model causes the BFS verifier to re-evaluate the level. Any gap requiring the nerfed jump immediately produces a counterexample.
       </div>
     </div>
   );

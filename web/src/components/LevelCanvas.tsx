@@ -11,6 +11,8 @@ export interface LevelCanvasProps {
   height?: number;
 }
 
+const RULER_OFFSET = 22; // Pixels reserved for X and Y coordinate axis rulers
+
 export const LevelCanvas: React.FC<LevelCanvasProps> = ({
   level,
   verification,
@@ -30,91 +32,156 @@ export const LevelCanvas: React.FC<LevelCanvasProps> = ({
     const gridW = level.width;
     const gridH = level.height;
 
-    // Calculate tile size to fit cleanly on screen (minimum 40px, maximum 64px)
-    const tileSize = Math.min(60, Math.floor(Math.min(760 / gridW, 460 / gridH)));
-    const canvasWidth = gridW * tileSize;
-    const canvasHeight = gridH * tileSize;
+    // Calculate tile size to fit cleanly on screen (minimum 40px, maximum 60px)
+    const tileSize = Math.min(56, Math.floor(Math.min(740 / gridW, 440 / gridH)));
+    const gridPxW = gridW * tileSize;
+    const gridPxH = gridH * tileSize;
+    const canvasWidth = gridPxW + RULER_OFFSET;
+    const canvasHeight = gridPxH + RULER_OFFSET;
 
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
 
-    // 1. Background
-    ctx.fillStyle = "#090d16";
+    // 1. Technical Drafting Canvas Background
+    ctx.fillStyle = "#111620";
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-    // 2. Render Tiles
+    // Coordinate Rulers Background
+    ctx.fillStyle = "#0A0E15";
+    ctx.fillRect(0, 0, canvasWidth, RULER_OFFSET);
+    ctx.fillRect(0, 0, RULER_OFFSET, canvasHeight);
+
+    // Ruler Divider Lines
+    ctx.strokeStyle = "#273142";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(RULER_OFFSET, 0);
+    ctx.lineTo(RULER_OFFSET, canvasHeight);
+    ctx.moveTo(0, RULER_OFFSET);
+    ctx.lineTo(canvasWidth, RULER_OFFSET);
+    ctx.stroke();
+
+    // Corner Origin Tag
+    ctx.fillStyle = "#4B5565";
+    ctx.font = "8px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("0,0", RULER_OFFSET / 2, RULER_OFFSET / 2);
+
+    // X-Axis Coordinate Markers
+    ctx.font = "9px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (let x = 0; x < gridW; x++) {
+      const px = RULER_OFFSET + x * tileSize + tileSize / 2;
+      ctx.fillStyle = "#6B7A90";
+      ctx.fillText(x.toString(), px, RULER_OFFSET / 2);
+
+      // Tick mark
+      ctx.strokeStyle = "#273142";
+      ctx.beginPath();
+      ctx.moveTo(RULER_OFFSET + (x + 1) * tileSize, RULER_OFFSET - 4);
+      ctx.lineTo(RULER_OFFSET + (x + 1) * tileSize, RULER_OFFSET);
+      ctx.stroke();
+    }
+
+    // Y-Axis Coordinate Markers
+    for (let y = 0; y < gridH; y++) {
+      const py = RULER_OFFSET + y * tileSize + tileSize / 2;
+      ctx.fillStyle = "#6B7A90";
+      ctx.fillText(y.toString(), RULER_OFFSET / 2, py);
+
+      // Tick mark
+      ctx.strokeStyle = "#273142";
+      ctx.beginPath();
+      ctx.moveTo(RULER_OFFSET - 4, RULER_OFFSET + (y + 1) * tileSize);
+      ctx.lineTo(RULER_OFFSET, RULER_OFFSET + (y + 1) * tileSize);
+      ctx.stroke();
+    }
+
+    // 2. Render Blueprint Grid & Tiles
     for (let y = 0; y < gridH; y++) {
       for (let x = 0; x < gridW; x++) {
         const tile = level.tiles[y]?.[x] ?? "AIR";
-        const px = x * tileSize;
-        const py = y * tileSize;
+        const px = RULER_OFFSET + x * tileSize;
+        const py = RULER_OFFSET + y * tileSize;
 
-        // Grid lines
-        ctx.strokeStyle = "#172033";
+        // Blueprint 1px Grid Outline
+        ctx.strokeStyle = "#1A2230";
         ctx.lineWidth = 1;
         ctx.strokeRect(px, py, tileSize, tileSize);
 
         if (tile === "GROUND") {
-          // Platform block
-          ctx.fillStyle = "#1e293b";
+          // Architectural Ground Block
+          ctx.fillStyle = "#1E2736";
           ctx.fillRect(px, py, tileSize, tileSize);
 
-          // Glowing top edge
-          ctx.fillStyle = "#38bdf8";
-          ctx.fillRect(px, py, tileSize, Math.max(3, Math.floor(tileSize * 0.1)));
+          // Top walking rail
+          ctx.fillStyle = "#365985";
+          ctx.fillRect(px, py, tileSize, 3);
 
-          // Inner bevel
-          ctx.strokeStyle = "#334155";
-          ctx.lineWidth = 1.5;
-          ctx.strokeRect(px + 1, py + 1, tileSize - 2, tileSize - 2);
-        } else if (tile === "HAZARD") {
-          // Lethal hazard spikes
-          ctx.fillStyle = "#450a0a";
-          ctx.fillRect(px, py, tileSize, tileSize);
-
-          // Draw neon hazard spikes
-          ctx.fillStyle = "#ef4444";
-          ctx.beginPath();
-          const spikeCount = 3;
-          const spikeW = tileSize / spikeCount;
-          for (let s = 0; s < spikeCount; s++) {
-            ctx.moveTo(px + s * spikeW, py + tileSize);
-            ctx.lineTo(px + (s + 0.5) * spikeW, py + tileSize * 0.35);
-            ctx.lineTo(px + (s + 1) * spikeW, py + tileSize);
-          }
-          ctx.fill();
-
-          ctx.strokeStyle = "#f87171";
+          // Technical inner hatching line
+          ctx.strokeStyle = "#2B374A";
           ctx.lineWidth = 1;
-          ctx.strokeRect(px, py, tileSize, tileSize);
-        } else if (tile === "START") {
-          // Start portal
-          ctx.fillStyle = "#052e16";
+          ctx.beginPath();
+          ctx.moveTo(px + 4, py + tileSize - 4);
+          ctx.lineTo(px + tileSize - 4, py + 4);
+          ctx.stroke();
+        } else if (tile === "HAZARD") {
+          // Industrial Caution Hazard (Spikes & diagonal stripes)
+          ctx.fillStyle = "#2D1414";
           ctx.fillRect(px, py, tileSize, tileSize);
 
-          ctx.fillStyle = "#22c55e";
+          // Industrial warning stripes
+          ctx.save();
           ctx.beginPath();
-          ctx.arc(px + tileSize / 2, py + tileSize / 2, tileSize * 0.35, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.rect(px, py, tileSize, tileSize);
+          ctx.clip();
+          ctx.strokeStyle = "#8A2424";
+          ctx.lineWidth = 4;
+          for (let s = -tileSize; s < tileSize * 2; s += 8) {
+            ctx.beginPath();
+            ctx.moveTo(px + s, py);
+            ctx.lineTo(px + s + tileSize, py + tileSize);
+            ctx.stroke();
+          }
+          ctx.restore();
 
-          // Label
-          ctx.fillStyle = "#ffffff";
-          ctx.font = `bold ${Math.floor(tileSize * 0.38)}px monospace`;
+          // Hazard border
+          ctx.strokeStyle = "#A52828";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(px + 1, py + 1, tileSize - 2, tileSize - 2);
+        } else if (tile === "START") {
+          // Precision Start Point
+          ctx.fillStyle = "#11261B";
+          ctx.fillRect(px, py, tileSize, tileSize);
+
+          // Crosshair circle
+          ctx.strokeStyle = "#1B6535";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(px + tileSize / 2, py + tileSize / 2, tileSize * 0.32, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // S Badge
+          ctx.fillStyle = "#268E4C";
+          ctx.font = `bold ${Math.floor(tileSize * 0.35)}px monospace`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillText("S", px + tileSize / 2, py + tileSize / 2);
         } else if (tile === "GOAL") {
-          // Goal beacon
-          ctx.fillStyle = "#422006";
+          // Precision Goal Point
+          ctx.fillStyle = "#281D0E";
           ctx.fillRect(px, py, tileSize, tileSize);
 
-          ctx.fillStyle = "#eab308";
-          ctx.beginPath();
-          ctx.arc(px + tileSize / 2, py + tileSize / 2, tileSize * 0.35, 0, Math.PI * 2);
-          ctx.fill();
+          // Target square
+          ctx.strokeStyle = "#B07219";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(px + tileSize * 0.2, py + tileSize * 0.2, tileSize * 0.6, tileSize * 0.6);
 
-          ctx.fillStyle = "#000000";
-          ctx.font = `bold ${Math.floor(tileSize * 0.38)}px monospace`;
+          // G Badge
+          ctx.fillStyle = "#D48B22";
+          ctx.font = `bold ${Math.floor(tileSize * 0.35)}px monospace`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillText("G", px + tileSize / 2, py + tileSize / 2);
@@ -122,59 +189,71 @@ export const LevelCanvas: React.FC<LevelCanvasProps> = ({
       }
     }
 
-    // 3. Highlight Patched Tiles (if any)
+    // 3. Technical Patch Diff Overlay (if any patch applied)
     if (latestPatch?.operations) {
       for (const op of latestPatch.operations) {
-        const px = op.x * tileSize;
-        const py = op.y * tileSize;
-        ctx.strokeStyle = "#06b6d4";
-        ctx.lineWidth = 3;
-        ctx.strokeRect(px + 2, py + 2, tileSize - 4, tileSize - 4);
+        const px = RULER_OFFSET + op.x * tileSize;
+        const py = RULER_OFFSET + op.y * tileSize;
 
-        // Indicator pulse
-        ctx.fillStyle = "rgba(6, 182, 212, 0.25)";
-        ctx.fillRect(px + 2, py + 2, tileSize - 4, tileSize - 4);
+        ctx.strokeStyle = "#B07219";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([3, 2]);
+        ctx.strokeRect(px + 2, py + 2, tileSize - 4, tileSize - 4);
+        ctx.setLineDash([]);
+
+        // Small tag
+        ctx.fillStyle = "#B07219";
+        ctx.font = "8px monospace";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillText("PATCH", px + 3, py + 3);
       }
     }
 
-    // 4. Counterexample Overlays
+    // 4. Authoritative Verification Overlays (Failures & Telemetry)
     if (verification?.status === "FAILED") {
       const ce = verification.counterexample;
 
-      // Highlight Failure Node
+      // Failure Node Target Reticle
       if (ce.failure_node) {
-        const fnX = ce.failure_node.x * tileSize;
-        const fnY = ce.failure_node.y * tileSize;
+        const fnX = RULER_OFFSET + ce.failure_node.x * tileSize;
+        const fnY = RULER_OFFSET + ce.failure_node.y * tileSize;
 
-        ctx.strokeStyle = "#f59e0b";
-        ctx.lineWidth = 3;
-        ctx.setLineDash([4, 4]);
-        ctx.strokeRect(fnX + 3, fnY + 3, tileSize - 6, tileSize - 6);
+        ctx.strokeStyle = "#B07219";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 3]);
+        ctx.strokeRect(fnX + 2, fnY + 2, tileSize - 4, tileSize - 4);
         ctx.setLineDash([]);
 
-        // Label failure node
-        ctx.fillStyle = "#f59e0b";
-        ctx.font = `bold ${Math.floor(tileSize * 0.25)}px monospace`;
+        ctx.fillStyle = "#B07219";
+        ctx.font = "bold 9px monospace";
         ctx.textAlign = "left";
-        ctx.fillText("FAIL", fnX + 4, fnY + 12);
+        ctx.textBaseline = "top";
+        ctx.fillText("FAIL", fnX + 4, fnY + 4);
       }
 
-      // Highlight Collision Coordinate
+      // Exact Collision Crosshair
       if (ce.collision_at) {
-        const colX = ce.collision_at.x * tileSize;
-        const colY = ce.collision_at.y * tileSize;
+        const colX = RULER_OFFSET + ce.collision_at.x * tileSize;
+        const colY = RULER_OFFSET + ce.collision_at.y * tileSize;
 
-        ctx.strokeStyle = "#f43f5e";
-        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#A52828";
+        ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.moveTo(colX + 4, colY + 4);
-        ctx.lineTo(colX + tileSize - 4, colY + tileSize - 4);
-        ctx.moveTo(colX + tileSize - 4, colY + 4);
-        ctx.lineTo(colX + 4, colY + tileSize - 4);
+        ctx.moveTo(colX + 5, colY + 5);
+        ctx.lineTo(colX + tileSize - 5, colY + tileSize - 5);
+        ctx.moveTo(colX + tileSize - 5, colY + 5);
+        ctx.lineTo(colX + 5, colY + tileSize - 5);
         ctx.stroke();
+
+        ctx.fillStyle = "#A52828";
+        ctx.font = "8px monospace";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "bottom";
+        ctx.fillText("COLLISION", colX + 4, colY + tileSize - 2);
       }
 
-      // Draw vector to Goal if gap exists
+      // Gap Vector to Goal (Engineering dashed vector)
       if (ce.failure_node && ce.gap_to_goal) {
         let goalX = -1;
         let goalY = -1;
@@ -188,14 +267,14 @@ export const LevelCanvas: React.FC<LevelCanvasProps> = ({
         }
 
         if (goalX !== -1) {
-          const startPtX = (ce.failure_node.x + 0.5) * tileSize;
-          const startPtY = (ce.failure_node.y + 0.5) * tileSize;
-          const endPtX = (goalX + 0.5) * tileSize;
-          const endPtY = (goalY + 0.5) * tileSize;
+          const startPtX = RULER_OFFSET + (ce.failure_node.x + 0.5) * tileSize;
+          const startPtY = RULER_OFFSET + (ce.failure_node.y + 0.5) * tileSize;
+          const endPtX = RULER_OFFSET + (goalX + 0.5) * tileSize;
+          const endPtY = RULER_OFFSET + (goalY + 0.5) * tileSize;
 
-          ctx.strokeStyle = "rgba(245, 158, 11, 0.7)";
-          ctx.lineWidth = 2;
-          ctx.setLineDash([5, 5]);
+          ctx.strokeStyle = "rgba(176, 114, 25, 0.75)";
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([4, 4]);
           ctx.beginPath();
           ctx.moveTo(startPtX, startPtY);
           ctx.lineTo(endPtX, endPtY);
@@ -205,27 +284,26 @@ export const LevelCanvas: React.FC<LevelCanvasProps> = ({
       }
     }
 
-    // 5. Render Play Mode Player Avatar
+    // 5. Play Mode Avatar (Crisp Mechanical Cursor)
     if (playerState) {
-      const px = (playerState.x + 0.5) * tileSize;
-      const py = (playerState.y + 0.5) * tileSize;
+      const px = RULER_OFFSET + (playerState.x + 0.5) * tileSize;
+      const py = RULER_OFFSET + (playerState.y + 0.5) * tileSize;
       const radius = tileSize * 0.32;
 
-      // Player circle
-      ctx.fillStyle = "#38bdf8";
+      ctx.fillStyle = "#2D68C4";
       ctx.beginPath();
       ctx.arc(px, py, radius, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.strokeStyle = "#ffffff";
+      ctx.strokeStyle = "#FAF9F5";
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // Eye / Facing direction indicator
-      const eyeOffset = playerState.facing * radius * 0.4;
-      ctx.fillStyle = "#090d16";
+      // Heading indicator mark
+      const eyeOffset = playerState.facing * radius * 0.45;
+      ctx.fillStyle = "#FAF9F5";
       ctx.beginPath();
-      ctx.arc(px + eyeOffset, py - radius * 0.15, radius * 0.25, 0, Math.PI * 2);
+      ctx.arc(px + eyeOffset, py - radius * 0.15, radius * 0.22, 0, Math.PI * 2);
       ctx.fill();
     }
   }, [level, verification, latestPatch, playerState]);
@@ -236,10 +314,12 @@ export const LevelCanvas: React.FC<LevelCanvasProps> = ({
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
+    const clickX = e.clientX - rect.left - RULER_OFFSET;
+    const clickY = e.clientY - rect.top - RULER_OFFSET;
 
-    const tileSize = canvas.width / level.width;
+    if (clickX < 0 || clickY < 0) return;
+
+    const tileSize = (canvas.width - RULER_OFFSET) / level.width;
     const tileX = Math.floor(clickX / tileSize);
     const tileY = Math.floor(clickY / tileSize);
 
@@ -251,8 +331,7 @@ export const LevelCanvas: React.FC<LevelCanvasProps> = ({
   if (!level) {
     return (
       <div className="canvas-placeholder">
-        <div className="placeholder-icon">⬚</div>
-        <p>No level loaded. Enter an intent above and click <strong>Synthesize & Verify</strong>.</p>
+        <p>No level loaded. Enter an intent above and click <strong>Compile & Verify</strong>.</p>
       </div>
     );
   }
@@ -260,20 +339,20 @@ export const LevelCanvas: React.FC<LevelCanvasProps> = ({
   return (
     <div className="canvas-wrapper">
       <div className="canvas-header">
-        <span className="dimension-badge">{level.width} × {level.height} Grid</span>
-        <span className="legend-item"><span className="legend-color ground"></span> Ground</span>
-        <span className="legend-item"><span className="legend-color hazard"></span> Hazard</span>
-        <span className="legend-item"><span className="legend-color start"></span> Start</span>
-        <span className="legend-item"><span className="legend-color goal"></span> Goal</span>
+        <span className="dimension-badge">{level.width} × {level.height} GRID</span>
+        <span className="legend-item"><span className="legend-color ground"></span> GROUND</span>
+        <span className="legend-item"><span className="legend-color hazard"></span> HAZARD</span>
+        <span className="legend-item"><span className="legend-color start"></span> START</span>
+        <span className="legend-item"><span className="legend-color goal"></span> GOAL</span>
         {latestPatch?.operations && latestPatch.operations.length > 0 && (
-          <span className="patch-highlight-badge">✦ {latestPatch.operations.length} Patched Tile(s)</span>
+          <span className="patch-highlight-badge">PATCH: {latestPatch.operations.length} OPS</span>
         )}
       </div>
       <canvas
         ref={canvasRef}
         onClick={handleCanvasClick}
         className="level-canvas"
-        title="Click on any tile to inspect or target with Judge Sabotage"
+        title="Engineering coordinate plane. Click tile to inspect or target with Judge Sabotage."
       />
     </div>
   );

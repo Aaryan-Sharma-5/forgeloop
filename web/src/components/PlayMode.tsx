@@ -41,7 +41,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({
     setPlayer(initial);
     setIsPlaying(true);
     setHistory([]);
-    setStatusMessage("Use Arrow Keys or buttons below to step macro-actions!");
+    setStatusMessage("Active session. Use Arrow Keys/WASD or buttons below to step macro-actions.");
     onPlayerStateChange?.(initial);
   };
 
@@ -75,7 +75,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({
         let curY = startY;
         while (curY < level.height - 1) {
           if (isSolid(startX, curY + 1)) return curY;
-          if (isHazard(startX, curY + 1)) return curY + 1; // Fell into hazard
+          if (isHazard(startX, curY + 1)) return curY + 1;
           curY++;
         }
         return curY;
@@ -100,103 +100,85 @@ export const PlayMode: React.FC<PlayModeProps> = ({
             { x: startX + facingSign * 2, y: startY },
           ];
         }
-        if (distance === 4) {
-          return [
-            { x: startX + facingSign * 1, y: startY - apex },
-            { x: startX + facingSign * 2, y: startY - (apex + 1) },
-            { x: startX + facingSign * 3, y: startY - apex },
-            { x: startX + facingSign * 4, y: startY },
-          ];
-        }
-        const arc = [];
-        for (let step = 1; step <= distance; step++) {
-          const p = step / distance;
-          const dy = -Math.round(4 * apex * p * (1 - p));
-          arc.push({ x: startX + facingSign * step, y: startY + dy });
-        }
-        return arc;
+        return [
+          { x: startX + facingSign * 1, y: startY - apex },
+          { x: startX + facingSign * 2, y: startY - (apex + 1) },
+          { x: startX + facingSign * 3, y: startY - apex },
+          { x: startX + facingSign * 4, y: startY },
+        ];
       };
 
       if (action === "MOVE_LEFT" || action === "MOVE_RIGHT") {
         const targetX = player.x + sign;
-        if (targetX >= 0 && targetX < level.width && !isSolid(targetX, player.y)) {
-          nextX = targetX;
-          const landY = applyGravity(nextX, nextY);
-          if (landY !== null) {
-            nextY = landY;
-          }
-        }
-      } else if (action === "JUMP_SHORT" || action === "JUMP_LONG") {
-        if (!player.grounded) {
-          setStatusMessage("⚠️ Cannot jump while airborne (must be grounded)!");
+        const targetY = player.y;
+
+        if (isSolid(targetX, targetY)) {
+          setStatusMessage(`BLOCKED: Solid wall at (${targetX}, ${targetY})`);
           return;
         }
 
-        const distance = action === "JUMP_SHORT" ? 2 : 4;
-        const arc = buildJumpArc(player.x, player.y, (sign === -1 ? -1 : 1), distance);
+        if (isHazard(targetX, targetY)) {
+          setStatusMessage(`FATAL: Player touched lethal hazard at (${targetX}, ${targetY})! Resetting.`);
+          handleStartPlay();
+          return;
+        }
 
-        let blocked = false;
-        let obstacleReason = "";
+        const landedY = applyGravity(targetX, targetY);
+        if (landedY !== null) {
+          nextX = targetX;
+          nextY = landedY;
+        }
+      } else if (action === "JUMP_SHORT" || action === "JUMP_LONG") {
+        const dist = action === "JUMP_SHORT" ? 2 : 4;
+        const arc = buildJumpArc(player.x, player.y, sign, dist);
+
+        let collision = false;
         for (const pt of arc) {
           if (!isAirspace(pt.x, pt.y)) {
-            blocked = true;
-            obstacleReason =
-              pt.x < 0 || pt.x >= level.width || pt.y < 0 || pt.y >= level.height
-                ? "Boundary"
-                : level.tiles[pt.y]?.[pt.x] === "HAZARD"
-                ? "Hazard Spike"
-                : "Ceiling / Obstacle";
+            collision = true;
             break;
           }
         }
 
-        if (blocked) {
-          setStatusMessage(`⛔ ${action} trajectory blocked by ${obstacleReason}!`);
+        if (collision) {
+          setStatusMessage(`COLLISION: ${action} arc blocked by obstacle!`);
           return;
         }
 
-        const targetX = player.x + sign * distance;
-        nextX = targetX;
-        const landY = applyGravity(nextX, nextY);
-        if (landY !== null) {
-          nextY = landY;
-        }
-      } else if (action === "WAIT") {
-        if (!player.grounded) {
-          const landY = applyGravity(nextX, nextY);
-          if (landY !== null) {
-            nextY = landY;
+        const landingCandidate = arc[arc.length - 1];
+        if (landingCandidate) {
+          const landedY = applyGravity(landingCandidate.x, landingCandidate.y);
+          if (landedY !== null) {
+            nextX = landingCandidate.x;
+            nextY = landedY;
           }
         }
       }
 
-      // Check Hazard Collision
       if (isHazard(nextX, nextY)) {
-        setStatusMessage("💀 Hazard contact! Resetting to START position...");
-        const start = getStartPos();
-        const resetState: GameState = { x: start.x, y: start.y, grounded: true, facing: 1 };
-        setPlayer(resetState);
-        onPlayerStateChange?.(resetState);
+        setStatusMessage(`FATAL: Player fell into hazard at (${nextX}, ${nextY})! Resetting.`);
+        handleStartPlay();
         return;
-      }
-
-      // Check Goal Reached
-      if (level.tiles[nextY]?.[nextX] === "GOAL") {
-        setStatusMessage("🎉 GOAL REACHED! Verified level solved interactively!");
       }
 
       const updated: GameState = {
         x: nextX,
         y: nextY,
-        grounded: isSolid(nextX, nextY + 1),
+        grounded: true,
         facing: sign,
       };
 
       setPlayer(updated);
       setHistory((prev) => [...prev, action]);
       onPlayerStateChange?.(updated);
+
+      if (level.tiles[nextY]?.[nextX] === "GOAL") {
+        setStatusMessage(`GOAL REACHED in ${history.length + 1} steps! Verifier proof confirmed.`);
+      } else {
+        setStatusMessage(`Executed ${action} → Pos: (${nextX}, ${nextY})`);
+      }
     },
-    [isPlaying, player, level, getStartPos, onPlayerStateChange]
+    [isPlaying, player, level, history, onPlayerStateChange]
   );
 
   // Keyboard controls listener
@@ -232,54 +214,94 @@ export const PlayMode: React.FC<PlayModeProps> = ({
 
   if (!isVerifiedPlayable) {
     return (
-      <div className="panel playmode-panel locked">
-        <div className="panel-title">Interactive Play Mode</div>
-        <div className="locked-notice">
-          🔒 Locked. Play mode is only enabled after machine verification confirms <strong>PASSED</strong> playability.
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, color: "var(--ink-secondary)" }}>
+            PLAY MODE // VERIFICATION GATE
+          </span>
+          <span className="badge badge-fail">LOCKED</span>
+        </div>
+        <div style={{
+          padding: 12,
+          background: "var(--bg-surface-elevated)",
+          border: "1px solid var(--border-rule)",
+          borderRadius: "var(--radius-sm)",
+          fontFamily: "var(--font-mono)",
+          fontSize: 11,
+          color: "var(--ink-secondary)",
+          lineHeight: 1.5,
+        }}>
+          Play Mode is restricted until the authoritative BFS verifier proves the level is playable (status: PASSED).
         </div>
       </div>
     );
   }
 
   return (
-    <div className="panel playmode-panel">
-      <div className="panel-header">
-        <div className="panel-title">Interactive Play Mode (Verified Engine)</div>
-        <span className="unlocked-badge">✔ Playable</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, color: "var(--ink-secondary)" }}>
+          PLAY MODE // CANONICAL PHYSICS
+        </span>
+        <span className="badge badge-pass">VERIFIED ACCESSIBLE</span>
       </div>
 
       {!isPlaying ? (
-        <div className="play-prompt">
-          <p>This level has been mathematically verified solvable. Step in and play:</p>
-          <button className="btn btn-success" onClick={handleStartPlay}>
-            ▶ Start Play Mode
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <p style={{ fontSize: 11, color: "var(--ink-secondary)" }}>
+            This level is mathematically verified solvable. Step in to execute player actions under canonical verifier physics:
+          </p>
+          <button className="btn btn-primary" onClick={handleStartPlay}>
+            ENTER PLAY MODE
           </button>
         </div>
       ) : (
-        <div className="active-play-controls">
-          <div className="hud-bar">
-            <span>Position: ({player?.x}, {player?.y})</span>
-            <span>Grounded: {player?.grounded ? "YES" : "NO"}</span>
-            <span>Steps: {history.length}</span>
-            <button className="btn btn-outline-sm" onClick={handleStopPlay}>
-              ⏹ Exit
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "6px 10px",
+            background: "var(--bg-surface-elevated)",
+            border: "1px solid var(--border-rule)",
+            borderRadius: "var(--radius-sm)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+          }}>
+            <span>POS: ({player?.x}, {player?.y})</span>
+            <span>GROUNDED: {player?.grounded ? "YES" : "NO"}</span>
+            <span>STEPS: {history.length}</span>
+            <button className="btn btn-secondary btn-sm" onClick={handleStopPlay}>
+              EXIT
             </button>
           </div>
 
-          {statusMessage && <div className="play-status-banner">{statusMessage}</div>}
+          {statusMessage && (
+            <div style={{
+              padding: "6px 10px",
+              background: "var(--bg-surface-inset)",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-sm)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              color: "var(--ink-primary)",
+            }}>
+              {statusMessage}
+            </div>
+          )}
 
-          <div className="action-buttons-hud">
-            <button className="btn btn-hud" onClick={() => stepAction("MOVE_LEFT")}>
-              ◀ Walk Left [A]
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => stepAction("MOVE_LEFT")}>
+              WALK LEFT [A]
             </button>
-            <button className="btn btn-hud primary" onClick={() => stepAction("JUMP_SHORT")}>
-              ▲ Jump Short (2) [W]
+            <button className="btn btn-secondary btn-sm" onClick={() => stepAction("MOVE_RIGHT")}>
+              WALK RIGHT [D]
             </button>
-            <button className="btn btn-hud warning" onClick={() => stepAction("JUMP_LONG")}>
-              ⮉ Jump Long (4) [Space]
+            <button className="btn btn-primary btn-sm" onClick={() => stepAction("JUMP_SHORT")}>
+              JUMP SHORT (2) [W]
             </button>
-            <button className="btn btn-hud" onClick={() => stepAction("MOVE_RIGHT")}>
-              Walk Right [D] ▶
+            <button className="btn btn-primary btn-sm" onClick={() => stepAction("JUMP_LONG")}>
+              JUMP LONG (4) [SPACE]
             </button>
           </div>
         </div>

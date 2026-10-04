@@ -12,18 +12,18 @@ export const ConstraintPanel: React.FC<ConstraintPanelProps> = ({
 }) => {
   if (!constraints) {
     return (
-      <div className="panel constraint-panel">
-        <div className="panel-title">Constraint & Difficulty Matrix</div>
-        <div className="empty-notice">Awaiting level constraints...</div>
+      <div className="canvas-placeholder" style={{ padding: "20px 14px", textAlign: "left" }}>
+        <p className="text-muted" style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>
+          Awaiting level constraints specification.
+        </p>
       </div>
     );
   }
 
-  const isVerified = verification?.status === "PASSED";
   const metrics = verification?.metrics;
   const measuredDiff = metrics?.difficulty;
 
-  // Actual values derived from verifier (or N/A if failed or not yet run)
+  // Actual values derived from verifier
   const actualJumps = metrics ? metrics.critical_jumps_required : null;
   const actualPath = metrics ? metrics.action_sequence_length : null;
   const actualGrade = measuredDiff ? measuredDiff.grade : null;
@@ -37,112 +37,99 @@ export const ConstraintPanel: React.FC<ConstraintPanelProps> = ({
     actualGrade !== null ? actualGrade === constraints.target_difficulty : null;
 
   return (
-    <div className="panel constraint-panel">
-      <div className="panel-header">
-        <div className="panel-title">Constraint & Difficulty Matrix</div>
-        <div className="disclaimer-badge">Declared vs Measured Truth</div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, color: "var(--ink-secondary)" }}>
+          SPECIFICATION // DECLARED VS VERIFIED
+        </span>
+        <span className="badge badge-idle">AUTHORITATIVE CHECK</span>
       </div>
 
-      <div className="matrix-table">
-        <div className="matrix-row matrix-header-row">
-          <span className="col-prop">Parameter</span>
-          <span className="col-declared">Author Declared</span>
-          <span className="col-measured">Verified Actual</span>
-          <span className="col-status">Status</span>
-        </div>
+      <table className="comparison-table">
+        <thead>
+          <tr>
+            <th>CONSTRAINT</th>
+            <th>DECLARED</th>
+            <th>VERIFIED</th>
+            <th>EVALUATION</th>
+          </tr>
+        </thead>
+        <tbody>
+          {/* Target Difficulty */}
+          <tr className={diffMatch === false ? "error-row" : ""}>
+            <td style={{ fontWeight: 700 }}>DIFFICULTY TIER</td>
+            <td>{constraints.target_difficulty}</td>
+            <td>
+              {actualGrade ? `${actualGrade} (${actualScore})` : "—"}
+            </td>
+            <td>
+              {diffMatch === null ? (
+                <span className="text-muted">—</span>
+              ) : diffMatch ? (
+                <span className="text-green font-bold">MATCH</span>
+              ) : (
+                <span className="text-red font-bold">MISMATCH</span>
+              )}
+            </td>
+          </tr>
 
-        {/* Target Difficulty */}
-        <div className="matrix-row">
-          <span className="col-prop">Target Difficulty</span>
-          <span className="col-declared badge-declared">{constraints.target_difficulty}</span>
-          <span className="col-measured">
-            {actualGrade ? (
-              <span className={`badge-measured ${actualGrade.toLowerCase()}`}>
-                {actualGrade} (Score: {actualScore})
-              </span>
-            ) : (
-              "—"
-            )}
-          </span>
-          <span className="col-status">
-            {diffMatch === null ? (
-              "—"
-            ) : diffMatch ? (
-              <span className="pill-pass-small">MATCH</span>
-            ) : (
-              <span className="pill-fail-small">MISMATCH</span>
-            )}
-          </span>
-        </div>
+          {/* Required Jumps */}
+          <tr className={jumpsMatch === false ? "error-row" : ""}>
+            <td style={{ fontWeight: 700 }}>REQUIRED JUMPS</td>
+            <td>≥ {constraints.required_jumps}</td>
+            <td>{actualJumps !== null ? `${actualJumps} jumps` : "—"}</td>
+            <td>
+              {jumpsMatch === null ? (
+                <span className="text-muted">—</span>
+              ) : jumpsMatch ? (
+                <span className="text-green font-bold">SATISFIED</span>
+              ) : (
+                <span className="text-red font-bold">VIOLATED</span>
+              )}
+            </td>
+          </tr>
 
-        {/* Required Jumps */}
-        <div className="matrix-row">
-          <span className="col-prop">Required Jumps</span>
-          <span className="col-declared">≥ {constraints.required_jumps}</span>
-          <span className="col-measured">
-            {actualJumps !== null ? `${actualJumps} jumps` : "—"}
-          </span>
-          <span className="col-status">
-            {jumpsMatch === null ? (
-              "—"
-            ) : jumpsMatch ? (
-              <span className="pill-pass-small">SATISFIED</span>
-            ) : (
-              <span className="pill-fail-small">VIOLATED</span>
-            )}
-          </span>
-        </div>
+          {/* Min Path Length */}
+          <tr className={pathMatch === false ? "error-row" : ""}>
+            <td style={{ fontWeight: 700 }}>MIN PATH ACTIONS</td>
+            <td>≥ {constraints.min_path_length}</td>
+            <td>{actualPath !== null ? `${actualPath} actions` : "—"}</td>
+            <td>
+              {pathMatch === null ? (
+                <span className="text-muted">—</span>
+              ) : pathMatch ? (
+                <span className="text-green font-bold">SATISFIED</span>
+              ) : (
+                <span className="text-red font-bold">VIOLATED</span>
+              )}
+            </td>
+          </tr>
 
-        {/* Min Path Length */}
-        <div className="matrix-row">
-          <span className="col-prop">Min Path Length</span>
-          <span className="col-declared">≥ {constraints.min_path_length} steps</span>
-          <span className="col-measured">
-            {actualPath !== null ? `${actualPath} steps` : "—"}
-          </span>
-          <span className="col-status">
-            {pathMatch === null ? (
-              "—"
-            ) : pathMatch ? (
-              <span className="pill-pass-small">SATISFIED</span>
-            ) : (
-              <span className="pill-fail-small">VIOLATED</span>
-            )}
-          </span>
-        </div>
-
-        {/* No Trivial Route */}
-        <div className="matrix-row">
-          <span className="col-prop">No Trivial Walking Route</span>
-          <span className="col-declared">
-            {constraints.no_trivial_route ? "ENFORCED" : "OFF"}
-          </span>
-          <span className="col-measured">
-            {isVerified
-              ? actualJumps && actualJumps > 0
-                ? "Bypasses Prevented"
-                : "Straight Route"
-              : verification?.status === "FAILED" &&
-                verification.counterexample?.violated?.constraint === "no_trivial_route"
-              ? "Trivial Route Found"
-              : "—"}
-          </span>
-          <span className="col-status">
-            {verification?.status === "FAILED" &&
-            verification.counterexample?.violated?.constraint === "no_trivial_route" ? (
-              <span className="pill-fail-small">BYPASS DETECTED</span>
-            ) : isVerified ? (
-              <span className="pill-pass-small">SECURE</span>
-            ) : (
-              "—"
-            )}
-          </span>
-        </div>
-      </div>
-
-      <div className="matrix-footer-note">
-        ✦ <em>AI level synthesis can declare arbitrary difficulty, but only deterministic state-space exploration establishes true gameplay hardness.</em>
-      </div>
+          {/* No Trivial Route */}
+          <tr>
+            <td style={{ fontWeight: 700 }}>NO TRIVIAL ROUTE</td>
+            <td>{constraints.no_trivial_route ? "REQUIRED" : "OPTIONAL"}</td>
+            <td>
+              {actualJumps !== null
+                ? actualJumps > 0
+                  ? "NON-TRIVIAL"
+                  : "FLAT ROUTE"
+                : "—"}
+            </td>
+            <td>
+              {actualJumps !== null ? (
+                actualJumps > 0 ? (
+                  <span className="text-green font-bold">SATISFIED</span>
+                ) : (
+                  <span className="text-red font-bold">BYPASSED</span>
+                )
+              ) : (
+                <span className="text-muted">—</span>
+              )}
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 };

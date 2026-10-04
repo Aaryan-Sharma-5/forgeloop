@@ -246,91 +246,101 @@ export const App: React.FC = () => {
 
   return (
     <div className="workspace-container">
-      {/* Top Header */}
+      {/* Top Header Chrome */}
       <header className="forge-header">
         <div className="brand-group">
-          <div className="logo-badge">FL</div>
+          <span className="brand-mark">FL</span>
           <div>
             <h1 className="title">FORGELOOP</h1>
-            <div className="subtitle">Authoritative BFS Verification & Autonomous Repair Engine</div>
+            <div className="title-sub">VERIFICATION WORKSTATION // CEGIS LEVEL SYNTHESIS</div>
           </div>
         </div>
 
         <div className="header-meta">
-          <div className="status-pill">
-            <span className={`status-dot ${serverOnline === true ? 'dot-online' : serverOnline === false ? 'dot-offline' : 'dot-warn'}`}></span>
-            <span>BACKEND: {serverOnline === true ? 'PORT 3000' : serverOnline === false ? 'UNREACHABLE' : 'CHECKING'}</span>
+          <div className="instrument-readout">
+            <span className="readout-tag">PORT</span>
+            <span className={`indicator-dot ${serverOnline === true ? 'dot-active' : serverOnline === false ? 'dot-error' : 'dot-warning'}`}></span>
+            <span>{serverOnline === true ? '3000 // ONLINE' : serverOnline === false ? 'OFFLINE' : 'CHECKING'}</span>
           </div>
 
           {sessionId && (
-            <div className="status-pill">
-              <span className={`status-dot ${sseConnected ? 'dot-online' : 'dot-muted'}`}></span>
-              <span>SSE: {sseConnected ? 'STREAMING' : 'IDLE'}</span>
+            <div className="instrument-readout">
+              <span className="readout-tag">SESSION</span>
+              <span className={`indicator-dot ${sseConnected ? 'dot-active' : 'dot-inactive'}`}></span>
+              <span>{sessionId.slice(0, 12)}</span>
+            </div>
+          )}
+
+          {status && (
+            <div className="instrument-readout">
+              <span className="readout-tag">ENGINE</span>
+              <span className={status === 'VERIFIED' ? 'text-green font-bold' : status === 'FAILED' ? 'text-red font-bold' : status === 'GENERATING' ? 'text-amber font-bold' : 'text-muted'}>
+                {status}
+              </span>
             </div>
           )}
 
           <button className="btn btn-secondary btn-sm" onClick={() => setIsBenchmarkOpen(true)}>
-            📊 Benchmark Ablation
+            BENCHMARK ABLATION
           </button>
         </div>
       </header>
 
-      {/* Main Command Bar */}
-      <section className="command-bar">
-        <div className="input-wrap">
-          <span className="terminal-prefix">&gt; INTENT:</span>
-          <input
-            type="text"
-            className="intent-input"
-            value={intent}
-            onChange={(e) => setIntent(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void handleGenerate();
-            }}
-            placeholder="Type platformer intent: e.g. 'Build a level with 2 chasms and high jump requirement'..."
-            disabled={status === 'GENERATING'}
-          />
-        </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => void handleGenerate()}
-          disabled={status === 'GENERATING' || !intent.trim()}
-        >
-          {status === 'GENERATING' ? (
-            <>
-              <span className="spinner"></span> SYNTHESIZING...
-            </>
-          ) : (
-            '⚡ COMPILE & VERIFY'
-          )}
-        </button>
-      </section>
-
-      {/* Sample Presets */}
-      <div className="presets-row">
-        <span className="presets-label">QUICK PROMPTS:</span>
-        {SAMPLE_PROMPTS.map((sp) => (
+      {/* Main Command Station */}
+      <section className="command-station">
+        <div className="command-bar">
+          <div className="input-wrap">
+            <span className="terminal-prefix">&gt; DESIGN INTENT:</span>
+            <input
+              type="text"
+              className="intent-input"
+              value={intent}
+              onChange={(e) => setIntent(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void handleGenerate();
+              }}
+              placeholder="Specify natural-language level requirements: e.g. 'Build an easy level with one 2-tile gap'..."
+              disabled={status === 'GENERATING'}
+            />
+          </div>
           <button
-            key={sp.label}
-            className="preset-btn"
-            onClick={() => {
-              setIntent(sp.prompt);
-              void handleGenerate(sp.prompt);
-            }}
-            disabled={status === 'GENERATING'}
+            className="btn btn-primary"
+            onClick={() => void handleGenerate()}
+            disabled={status === 'GENERATING' || !intent.trim()}
           >
-            {sp.label}
+            {status === 'GENERATING' ? (
+              <>
+                <span className="spinner"></span> SYNTHESIZING...
+              </>
+            ) : (
+              'SYNTHESIZE & VERIFY'
+            )}
           </button>
-        ))}
-      </div>
+        </div>
+
+        {/* Sample Presets */}
+        <div className="presets-row">
+          <span className="presets-label">SCENARIO PRESETS:</span>
+          {SAMPLE_PROMPTS.map((sp, idx) => (
+            <button
+              key={sp.label}
+              className="preset-btn"
+              onClick={() => {
+                setIntent(sp.prompt);
+                void handleGenerate(sp.prompt);
+              }}
+              disabled={status === 'GENERATING'}
+            >
+              [{ (idx + 1).toString().padStart(2, '0') }] {sp.label}
+            </button>
+          ))}
+        </div>
+      </section>
 
       {/* Error Alert */}
       {errorMessage && (
         <div className="error-banner">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>⚠️</span>
-            <span>{errorMessage}</span>
-          </div>
+          <div>{errorMessage}</div>
           <button className="btn-close-sm" onClick={() => setErrorMessage(null)}>✕</button>
         </div>
       )}
@@ -342,8 +352,7 @@ export const App: React.FC = () => {
           <div className="panel canvas-panel">
             <div className="panel-header">
               <div className="panel-title">
-                <span className="dot dot-cyan"></span>
-                CANVAS GRID VIEW {level ? `(${level.width}×${level.height})` : ''}
+                <span>VIEWPORT // DRAFTING PLANE {level ? `(${level.width}×${level.height})` : ''}</span>
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 {status && (
@@ -357,7 +366,7 @@ export const App: React.FC = () => {
                 )}
                 {latestPatch && (
                   <span className="badge badge-warn">
-                    PATCH APPLIED: {latestPatch.operations.length} OPS
+                    PATCH: {latestPatch.operations.length} OPS
                   </span>
                 )}
               </div>
@@ -377,10 +386,12 @@ export const App: React.FC = () => {
           <div className="panel timeline-panel">
             <div className="panel-header">
               <div className="panel-title">
-                <span className="dot dot-purple"></span>
-                REPAIR TIMELINE ({events.length} EVENTS)
+                <span>CEGIS EXECUTION TRACE</span>
               </div>
-              {sessionId && <span className="session-id-tag">ID: {sessionId.slice(0, 8)}...</span>}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span className="event-count-badge">{events.length} EVENTS</span>
+                {sessionId && <span className="text-muted" style={{ fontFamily: 'var(--font-mono)', fontSize: 10 }}>ID: {sessionId.slice(0, 10)}</span>}
+              </div>
             </div>
             <div className="timeline-container">
               <RepairTimeline events={events} />
@@ -396,7 +407,7 @@ export const App: React.FC = () => {
               className={`tab-btn ${activeTab === 'verification' ? 'tab-active' : ''}`}
               onClick={() => setActiveTab('verification')}
             >
-              VERIFIER RESULTS
+              VERIFICATION
             </button>
             <button
               className={`tab-btn ${activeTab === 'constraints' ? 'tab-active' : ''}`}
@@ -414,7 +425,7 @@ export const App: React.FC = () => {
               className={`tab-btn ${activeTab === 'physics' ? 'tab-active' : ''}`}
               onClick={() => setActiveTab('physics')}
             >
-              PHYSICS REGRESSION
+              PHYSICS BENCH
             </button>
             <button
               className={`tab-btn ${activeTab === 'play' ? 'tab-active' : ''} ${!isVerifiedPass ? 'tab-disabled' : ''}`}
@@ -423,7 +434,7 @@ export const App: React.FC = () => {
               }}
               title={!isVerifiedPass ? 'Play Mode unlocks only after level passes machine verification' : 'Play verified level'}
             >
-              PLAY MODE {!isVerifiedPass && '🔒'}
+              PLAY MODE {!isVerifiedPass && '[LOCKED]'}
             </button>
           </div>
 

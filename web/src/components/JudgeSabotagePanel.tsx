@@ -42,57 +42,79 @@ export const JudgeSabotagePanel: React.FC<JudgeSabotagePanelProps> = ({
   };
 
   return (
-    <div className="panel sabotage-panel">
-      <div className="panel-header">
-        <div className="panel-title">Judge Sabotage Sandbox</div>
-        <span className="sabotage-badge">Live Counterexample Injection</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, color: "var(--ink-secondary)" }}>
+          JUDGE SABOTAGE // FAILURE INJECTION
+        </span>
+        <span className="badge badge-warn">ADVERSARIAL STRESS</span>
       </div>
 
-      <p className="panel-desc">
-        Actively test ForgeLoop's autonomous recovery by deliberately sabotaging this verified level:
+      <p style={{ fontSize: 11, color: "var(--ink-secondary)", lineHeight: 1.4 }}>
+        Deliberately inject structural or lethal failures into the level to test the verifier's detection and the repair loop's autonomous recovery:
       </p>
 
-      <div className="sabotage-buttons">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
         <button
-          className="btn btn-sabotage hazard-btn"
-          onClick={() => handleAction("DROP_HAZARD")}
+          className="btn btn-danger"
+          onClick={() => handleAction("CUT_BRIDGE")}
           disabled={disabled || loading || repairing}
-          title="Places a lethal hazard spike on the main path"
+          title="Excavates platform tiles along the solution path to create an uncrossable chasm"
         >
-          {loading && lastAction === "DROP_HAZARD" ? "Injecting..." : "⚡ Drop Lethal Hazard Spike"}
+          {loading && lastAction === "CUT_BRIDGE" ? "INJECTING..." : "CUT PLATFORM BRIDGE"}
         </button>
 
         <button
-          className="btn btn-sabotage bridge-btn"
-          onClick={() => handleAction("CUT_BRIDGE")}
+          className="btn btn-danger"
+          onClick={() => handleAction("DROP_HAZARD")}
           disabled={disabled || loading || repairing}
-          title="Removes a platform tile to create an impossible chasm"
+          title="Places a lethal hazard spike on the main traversal path"
         >
-          {loading && lastAction === "CUT_BRIDGE" ? "Injecting..." : "✂ Cut Platform Bridge"}
+          {loading && lastAction === "DROP_HAZARD" ? "INJECTING..." : "INJECT LETHAL HAZARD"}
         </button>
       </div>
 
       {canRepair && (
-        <div style={{ marginTop: "16px", padding: "12px", background: "rgba(16, 185, 129, 0.08)", border: "1px solid var(--green)", borderRadius: "6px" }}>
-          <div style={{ color: "var(--green)", fontWeight: 700, marginBottom: "6px", fontSize: "12px" }}>
-            LEVEL CURRENTLY BROKEN (COUNTEREXAMPLE DETECTED)
+        <div style={{
+          padding: 12,
+          background: "var(--color-fail-bg)",
+          border: "1px solid var(--color-fail-border)",
+          borderRadius: "var(--radius-sm)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 800, color: "var(--color-fail)" }}>
+              LEVEL COMPROMISED // COUNTEREXAMPLE IDENTIFIED
+            </span>
+            <span className="badge badge-fail">UNPLAYABLE</span>
           </div>
-          <p style={{ fontSize: "11px", color: "var(--text-secondary)", marginBottom: "10px" }}>
-            Trigger the counterexample-guided repair loop to synthesize a surgical patch and restore verified playability:
+          <p style={{ fontSize: 11, color: "var(--ink-secondary)" }}>
+            The authoritative BFS verifier has proven the sabotage broke reachability. Feed the failure telemetry into the surgical repair model:
           </p>
           <button
             className="btn btn-primary"
-            style={{ width: "100%", background: "var(--green)", color: "#000" }}
+            style={{ width: "100%", padding: "10px 14px", fontSize: 12 }}
             onClick={() => void handleRepair()}
             disabled={repairing || loading}
           >
-            {repairing ? "⚙ SYNTHESIZING REPAIR PATCH..." : "🔧 TRIGGER AUTONOMOUS REPAIR"}
+            {repairing ? "SYNTHESIZING REPAIR PATCH..." : "TRIGGER AUTONOMOUS REPAIR"}
           </button>
         </div>
       )}
 
-      <div className="sabotage-note">
-        ✦ <em>Judge action instantly breaks verified status → machine verifier detects failure → AI repairer synthesizes patch to restore playability.</em>
+      <div style={{
+        padding: "8px 10px",
+        background: "var(--bg-surface-elevated)",
+        border: "1px solid var(--border-subtle)",
+        borderRadius: "var(--radius-sm)",
+        fontFamily: "var(--font-mono)",
+        fontSize: 10,
+        color: "var(--ink-muted)",
+        lineHeight: 1.4,
+      }}>
+        PROTOCOL: Failure injection updates level state → BFSVerifier detects counterexample node → Autonomous repair generates minimal LevelPatch → BFSVerifier re-validates.
       </div>
     </div>
   );

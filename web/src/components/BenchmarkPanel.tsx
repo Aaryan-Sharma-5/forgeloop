@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { api } from '../lib/api';
-import type { BenchmarkReport } from '../types';
+import React, { useEffect, useState } from "react";
+import { api } from "../lib/api";
+import type { BenchmarkReport } from "../types";
 
 interface BenchmarkPanelProps {
   isOpen: boolean;
@@ -36,29 +36,30 @@ export const BenchmarkPanel: React.FC<BenchmarkPanelProps> = ({ isOpen, onClose 
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content benchmark-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="panel-header">
-          <div className="panel-title">
-            <span className="dot dot-cyan"></span>
-            Ablation Benchmark Report (First-Shot vs Naive vs AI Repair)
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, color: "var(--ink-primary)" }}>
+            BENCHMARK ABLATION // 6 DETERMINISTIC SCENARIOS
+          </span>
+          <div style={{ display: "flex", gap: "8px" }}>
             <button className="btn btn-secondary btn-sm" onClick={() => void fetchBenchmark()} disabled={loading}>
-              {loading ? 'Running Benchmark...' : 'Re-run Benchmark'}
+              {loading ? "EVALUATING..." : "RE-EVALUATE"}
             </button>
-            <button className="btn btn-secondary btn-sm" onClick={onClose}>✕</button>
+            <button className="btn btn-secondary btn-sm" onClick={onClose}>
+              CLOSE [ESC]
+            </button>
           </div>
         </div>
 
         {error && (
-          <div className="error-banner" style={{ margin: '16px 0' }}>
-            ⚠️ Benchmark Error: {error}
+          <div className="error-banner" style={{ margin: "14px 16px" }}>
+            Benchmark failure: {error}
           </div>
         )}
 
         {loading && (
-          <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
-            <span className="pulse-indicator"></span> Running deterministic benchmark ablation across 6 scenarios...
+          <div style={{ padding: "36px", textAlign: "center", color: "var(--ink-muted)", fontFamily: "var(--font-mono)", fontSize: 11 }}>
+            Executing benchmark ablation across First-Shot, Naive Heuristic, and Post-Repair strategies...
           </div>
         )}
 
@@ -66,16 +67,17 @@ export const BenchmarkPanel: React.FC<BenchmarkPanelProps> = ({ isOpen, onClose 
           <div className="benchmark-body">
             <div className="benchmark-summary-cards">
               <div className="metric-card">
-                <div className="metric-label">FIRST-SHOT PASS RATE</div>
+                <div className="metric-label">FIRST-SHOT (ZERO REPAIR)</div>
                 <div className="metric-value text-red">
                   {report.strategies.firstShot.successRate.toFixed(1)}%
                 </div>
                 <div className="metric-sub">
-                  {report.strategies.firstShot.finalSuccesses} / {report.totalScenarios} passed
+                  {report.strategies.firstShot.finalSuccesses} of {report.totalScenarios} scenarios
                 </div>
               </div>
+
               <div className="metric-card">
-                <div className="metric-label">NAIVE HEURISTIC PASS RATE</div>
+                <div className="metric-label">NAIVE SURFACE HEURISTIC</div>
                 <div className="metric-value text-amber">
                   {report.strategies.naiveHeuristic.successRate.toFixed(1)}%
                 </div>
@@ -83,99 +85,104 @@ export const BenchmarkPanel: React.FC<BenchmarkPanelProps> = ({ isOpen, onClose 
                   Blind surface fill
                 </div>
               </div>
+
               <div className="metric-card highlight-card">
-                <div className="metric-label">FORGELOOP REPAIR PASS RATE</div>
+                <div className="metric-label">COUNTEREXAMPLE-GUIDED REPAIR</div>
                 <div className="metric-value text-green">
                   {report.strategies.postRepair.successRate.toFixed(1)}%
                 </div>
                 <div className="metric-sub">
-                  Counterexample-guided BFS
+                  Authoritative verifier loop
                 </div>
               </div>
             </div>
 
-            <h4 style={{ margin: '18px 0 8px 0', fontSize: '13px', color: 'var(--text-muted)' }}>
-              STRATEGY COMPARISON MATRIX
-            </h4>
-            <table className="comparison-table">
-              <thead>
-                <tr>
-                  <th>Strategy</th>
-                  <th>Success Rate</th>
-                  <th>Avg Attempts</th>
-                  <th>Avg Patch Ops</th>
-                  <th>Avg Latency</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>First-Shot (No Repair)</strong></td>
-                  <td className="text-red">{report.strategies.firstShot.successRate.toFixed(1)}%</td>
-                  <td>1.0</td>
-                  <td>0.0</td>
-                  <td>{report.strategies.firstShot.avgVerificationLatencyMs.toFixed(2)} ms</td>
-                </tr>
-                <tr>
-                  <td><strong>Naive Heuristic</strong></td>
-                  <td className="text-amber">{report.strategies.naiveHeuristic.successRate.toFixed(1)}%</td>
-                  <td>1.0</td>
-                  <td>{report.strategies.naiveHeuristic.avgPatchOperations.toFixed(1)}</td>
-                  <td>{report.strategies.naiveHeuristic.avgVerificationLatencyMs.toFixed(2)} ms</td>
-                </tr>
-                <tr className="highlight-row">
-                  <td><strong>ForgeLoop AI Repair</strong></td>
-                  <td className="text-green font-bold">{report.strategies.postRepair.successRate.toFixed(1)}%</td>
-                  <td>{report.strategies.postRepair.avgRepairAttempts.toFixed(1)}</td>
-                  <td>{report.strategies.postRepair.avgPatchOperations.toFixed(1)}</td>
-                  <td>{(report.strategies.postRepair.avgVerificationLatencyMs + report.strategies.postRepair.avgRepairLatencyMs).toFixed(2)} ms</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <h4 style={{ margin: '18px 0 8px 0', fontSize: '13px', color: 'var(--text-muted)' }}>
-              SCENARIO ABLATION BREAKDOWN ({report.scenarios.length} Scenarios)
-            </h4>
-            <div className="table-container" style={{ maxHeight: '240px', overflowY: 'auto' }}>
-              <table className="comparison-table scenario-table">
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700, color: "var(--ink-muted)", letterSpacing: 0.5 }}>
+                STRATEGY COMPARISON MATRIX
+              </span>
+              <table className="comparison-table">
                 <thead>
                   <tr>
-                    <th>Scenario ID</th>
-                    <th>Name</th>
-                    <th>First-Shot</th>
-                    <th>Naive</th>
-                    <th>ForgeLoop Repair</th>
-                    <th>Repair Attempts</th>
+                    <th>STRATEGY</th>
+                    <th>SUCCESS RATE</th>
+                    <th>AVG ATTEMPTS</th>
+                    <th>AVG PATCH OPS</th>
+                    <th>AVG LATENCY</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {report.scenarios.map((sc) => (
-                    <tr key={sc.scenarioId}>
-                      <td className="font-mono text-xs">{sc.scenarioId}</td>
-                      <td>{sc.name}</td>
-                      <td>
-                        <span className={`badge ${sc.firstShotPassed ? 'badge-pass' : 'badge-fail'}`}>
-                          {sc.firstShotPassed ? 'PASS' : 'FAIL'}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`badge ${sc.naiveHeuristicPassed ? 'badge-pass' : 'badge-fail'}`}>
-                          {sc.naiveHeuristicPassed ? 'PASS' : 'FAIL'}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`badge ${sc.postRepairPassed ? 'badge-pass' : 'badge-fail'}`}>
-                          {sc.postRepairPassed ? 'PASS' : 'FAIL'}
-                        </span>
-                      </td>
-                      <td className="font-mono text-center">{sc.aiRepairAttempts}</td>
-                    </tr>
-                  ))}
+                  <tr>
+                    <td style={{ fontWeight: 700 }}>FIRST-SHOT (NO REPAIR)</td>
+                    <td className="text-red">{report.strategies.firstShot.successRate.toFixed(1)}%</td>
+                    <td>1.0</td>
+                    <td>0.0</td>
+                    <td>{report.strategies.firstShot.avgVerificationLatencyMs.toFixed(2)} ms</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: 700 }}>NAIVE SURFACE HEURISTIC</td>
+                    <td className="text-amber">{report.strategies.naiveHeuristic.successRate.toFixed(1)}%</td>
+                    <td>1.0</td>
+                    <td>{report.strategies.naiveHeuristic.avgPatchOperations.toFixed(1)}</td>
+                    <td>{report.strategies.naiveHeuristic.avgVerificationLatencyMs.toFixed(2)} ms</td>
+                  </tr>
+                  <tr className="highlight-row">
+                    <td style={{ fontWeight: 700 }}>FORGELOOP CEGIS REPAIR</td>
+                    <td className="text-green font-bold">{report.strategies.postRepair.successRate.toFixed(1)}%</td>
+                    <td>{report.strategies.postRepair.avgRepairAttempts.toFixed(1)}</td>
+                    <td>{report.strategies.postRepair.avgPatchOperations.toFixed(1)}</td>
+                    <td>{(report.strategies.postRepair.avgVerificationLatencyMs + report.strategies.postRepair.avgRepairLatencyMs).toFixed(2)} ms</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
 
-            <div style={{ marginTop: '16px', fontSize: '11px', color: 'var(--text-muted)', textAlign: 'right' }}>
-              Report generated at: {new Date(report.timestamp).toLocaleString()}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700, color: "var(--ink-muted)", letterSpacing: 0.5 }}>
+                SCENARIO ABLATION BREAKDOWN ({report.scenarios.length} SCENARIOS)
+              </span>
+              <div style={{ maxHeight: "200px", overflowY: "auto", border: "1px solid var(--border-rule)" }}>
+                <table className="comparison-table" style={{ border: "none" }}>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>SCENARIO</th>
+                      <th>FIRST-SHOT</th>
+                      <th>NAIVE</th>
+                      <th>FORGELOOP REPAIR</th>
+                      <th>ATTEMPTS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.scenarios.map((sc) => (
+                      <tr key={sc.scenarioId}>
+                        <td style={{ fontFamily: "var(--font-mono)" }}>{sc.scenarioId}</td>
+                        <td>{sc.name}</td>
+                        <td>
+                          <span className={`badge ${sc.firstShotPassed ? "badge-pass" : "badge-fail"}`}>
+                            {sc.firstShotPassed ? "PASS" : "FAIL"}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`badge ${sc.naiveHeuristicPassed ? "badge-pass" : "badge-fail"}`}>
+                            {sc.naiveHeuristicPassed ? "PASS" : "FAIL"}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`badge ${sc.postRepairPassed ? "badge-pass" : "badge-fail"}`}>
+                            {sc.postRepairPassed ? "PASS" : "FAIL"}
+                          </span>
+                        </td>
+                        <td style={{ fontFamily: "var(--font-mono)" }}>{sc.aiRepairAttempts}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style={{ fontSize: 10, color: "var(--ink-muted)", fontFamily: "var(--font-mono)", textAlign: "right" }}>
+              Report timestamp: {new Date(report.timestamp).toISOString()}
             </div>
           </div>
         )}
