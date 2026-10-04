@@ -1,3 +1,7 @@
+import dns from "node:dns";
+try {
+  dns.setDefaultResultOrder("ipv4first");
+} catch {}
 import { createForgeServer } from "./server.js";
 
 const port = Number(process.env.PORT) || 3000;

@@ -41,11 +41,14 @@ export function createGroqCompilerModel(
     typeof globalThis !== "undefined" && (globalThis as any).process?.env?.GROQ_API_KEY
       ? ((globalThis as any).process.env.GROQ_API_KEY as string)
       : undefined;
+  const envModel =
+    typeof globalThis !== "undefined" && (globalThis as any).process?.env?.GROQ_MODEL
+      ? ((globalThis as any).process.env.GROQ_MODEL as string)
+      : undefined;
   const apiKey = options.apiKey ?? envKey;
-  const model = options.model ?? "llama-3.3-70b-versatile";
+  const model = options.model ?? envModel ?? "qwen/qwen3.8-27b";
   const temperature = options.temperature ?? 0.1;
   const baseUrl = options.baseUrl ?? "https://api.groq.com/openai/v1/chat/completions";
-
 
   return {
     async compileIntent(input: string, systemPrompt?: string): Promise<unknown> {
@@ -55,32 +58,43 @@ export function createGroqCompilerModel(
         );
       }
 
-      const response = await fetch(baseUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            {
-              role: "system",
-              content: systemPrompt ?? INTENT_COMPILER_SYSTEM_PROMPT,
-            },
-            {
-              role: "user",
-              content: input,
-            },
-          ],
-          temperature,
-          response_format: { type: "json_object" },
-        }),
-      });
+      let response: Response | undefined;
+      for (let attempt = 0; attempt <= 2; attempt++) {
+        response = await fetch(baseUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              {
+                role: "system",
+                content: systemPrompt ?? INTENT_COMPILER_SYSTEM_PROMPT,
+              },
+              {
+                role: "user",
+                content: input,
+              },
+            ],
+            temperature,
+            response_format: { type: "json_object" },
+          }),
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Groq API request failed (${response.status}): ${errorText}`);
+        if (response.status === 429 && attempt < 2) {
+          const retryAfter = response.headers.get("retry-after");
+          const waitMs = retryAfter ? Math.max(1000, Math.ceil(parseFloat(retryAfter) * 1000)) : 3000;
+          await new Promise((resolve) => setTimeout(resolve, waitMs));
+          continue;
+        }
+        break;
+      }
+
+      if (!response || !response.ok) {
+        const errorText = await response?.text();
+        throw new Error(`Groq API request failed (${response?.status}): ${errorText}`);
       }
 
       const data = (await response.json()) as {
