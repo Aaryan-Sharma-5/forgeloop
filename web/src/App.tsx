@@ -21,10 +21,10 @@ import { PlayMode } from './components/PlayMode';
 import { BenchmarkPanel } from './components/BenchmarkPanel';
 
 const SAMPLE_PROMPTS = [
-  { label: 'EASY TUTORIAL', prompt: 'Create an easy tutorial level with 1 short gap' },
-  { label: 'CHASM HAZARDS', prompt: 'Design a level with dangerous hazard chasms' },
-  { label: 'HARD PLATFORMER', prompt: 'Create a hard level with multiple consecutive jumps' },
-  { label: 'HIGH DIFFICULTY', prompt: 'Construct an expert challenge with strict timing and hazards' },
+  { label: '01 Easy Tutorial', prompt: 'Create an easy tutorial level with 1 short gap' },
+  { label: '02 Chasm Hazards', prompt: 'Design a level with dangerous hazard chasms' },
+  { label: '03 Hard Platformer', prompt: 'Create a hard level with multiple consecutive jumps' },
+  { label: '04 High Difficulty', prompt: 'Construct an expert challenge with strict timing and hazards' },
 ];
 
 export const App: React.FC = () => {
@@ -40,10 +40,10 @@ export const App: React.FC = () => {
   
   // UI & Network State
   const [serverOnline, setServerOnline] = useState<boolean | null>(null);
-  const [sseConnected, setSseConnected] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'verification' | 'constraints' | 'sabotage' | 'physics' | 'play'>('verification');
+  const [secondaryTab, setSecondaryTab] = useState<'details' | 'sabotage' | 'physics' | 'play'>('details');
   const [isBenchmarkOpen, setIsBenchmarkOpen] = useState<boolean>(false);
+  const [isRepairing, setIsRepairing] = useState<boolean>(false);
 
   // Play Mode Player
   const [playerState, setPlayerState] = useState<GameState | null>(null);
@@ -117,6 +117,7 @@ export const App: React.FC = () => {
         break;
 
       case 'REPAIR_COMPLETED':
+        setIsRepairing(false);
         if (event.success) {
           setStatus('VERIFIED');
           setLevel(event.finalLevel);
@@ -132,6 +133,7 @@ export const App: React.FC = () => {
         break;
 
       case 'ERROR':
+        setIsRepairing(false);
         setStatus('FAILED');
         setErrorMessage(event.message);
         break;
@@ -156,7 +158,7 @@ export const App: React.FC = () => {
     setLatestPatch(null);
     setEvents([]);
     setPlayerState(null);
-    setActiveTab('verification');
+    setSecondaryTab('details');
 
     try {
       const { sessionId: newSessionId, state } = await api.createSession(targetIntent);
@@ -177,11 +179,9 @@ export const App: React.FC = () => {
         onEvent: handleServerEvent,
         onError: (err: Event) => {
           console.warn('SSE warning:', err);
-          setSseConnected(false);
         },
       });
       sseCleanupRef.current = cleanup;
-      setSseConnected(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setStatus('ERROR');
@@ -197,7 +197,7 @@ export const App: React.FC = () => {
       if (snapshot.level) setLevel(snapshot.level);
       if (snapshot.verification) setVerification(snapshot.verification);
       if (snapshot.events) setEvents(snapshot.events);
-      setActiveTab('verification');
+      setStatus(snapshot.terminalState === 'COMPLETED' ? 'VERIFIED' : 'FAILED');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setErrorMessage(`Sabotage failed: ${msg}`);
@@ -208,15 +208,17 @@ export const App: React.FC = () => {
   const handleRepairSession = async () => {
     if (!sessionId) return;
     try {
+      setIsRepairing(true);
       const snapshot = await api.repairSession(sessionId);
       if (snapshot.level) setLevel(snapshot.level);
       if (snapshot.verification) setVerification(snapshot.verification);
       if (snapshot.events) setEvents(snapshot.events);
       setStatus(snapshot.terminalState === 'COMPLETED' ? 'VERIFIED' : snapshot.terminalState);
-      setActiveTab('verification');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setErrorMessage(`Repair failed: ${msg}`);
+    } finally {
+      setIsRepairing(false);
     }
   };
 
@@ -234,8 +236,8 @@ export const App: React.FC = () => {
         if (data.verification) setVerification(data.verification);
         if (data.level) setLevel(data.level);
         if (data.events) setEvents(data.events);
+        setStatus(data.verification?.status === 'PASSED' ? 'VERIFIED' : 'FAILED');
       }
-      setActiveTab('verification');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setErrorMessage(`Physics regression failed: ${msg}`);
@@ -243,54 +245,47 @@ export const App: React.FC = () => {
   };
 
   const isVerifiedPass = verification?.status === 'PASSED';
+  const isPlaying = secondaryTab === 'play' && isVerifiedPass;
 
   return (
-    <div className="workspace-container">
-      {/* Top Header Chrome */}
-      <header className="forge-header">
-        <div className="brand-group">
-          <span className="brand-mark">FL</span>
-          <div>
-            <h1 className="title">FORGELOOP</h1>
-            <div className="title-sub">VERIFICATION WORKSTATION // CEGIS LEVEL SYNTHESIS</div>
+    <div className="studio-layout">
+      {/* 1. Header: Clean Editorial Game Tool Branding */}
+      <header className="studio-header">
+        <div className="brand-section">
+          <span className="brand-badge">FL</span>
+          <div className="brand-text">
+            <h1>FORGELOOP</h1>
+            <p>Counterexample-guided level design & verification</p>
           </div>
         </div>
 
-        <div className="header-meta">
-          <div className="instrument-readout">
-            <span className="readout-tag">PORT</span>
-            <span className={`indicator-dot ${serverOnline === true ? 'dot-active' : serverOnline === false ? 'dot-error' : 'dot-warning'}`}></span>
-            <span>{serverOnline === true ? '3000 // ONLINE' : serverOnline === false ? 'OFFLINE' : 'CHECKING'}</span>
+        <div className="header-status-group">
+          <div className="status-pill">
+            <span className={`status-dot ${serverOnline === true ? 'online' : serverOnline === false ? 'offline' : 'generating'}`}></span>
+            <span>{serverOnline === true ? 'ENGINE ONLINE' : serverOnline === false ? 'OFFLINE' : 'CHECKING'}</span>
           </div>
 
-          {sessionId && (
-            <div className="instrument-readout">
-              <span className="readout-tag">SESSION</span>
-              <span className={`indicator-dot ${sseConnected ? 'dot-active' : 'dot-inactive'}`}></span>
-              <span>{sessionId.slice(0, 12)}</span>
-            </div>
-          )}
-
-          {status && (
-            <div className="instrument-readout">
-              <span className="readout-tag">ENGINE</span>
-              <span className={status === 'VERIFIED' ? 'text-green font-bold' : status === 'FAILED' ? 'text-red font-bold' : status === 'GENERATING' ? 'text-amber font-bold' : 'text-muted'}>
-                {status}
-              </span>
-            </div>
-          )}
+          <span className={`verification-badge ${
+            status === 'VERIFIED' ? 'pass' :
+            status === 'FAILED' ? 'fail' :
+            status === 'GENERATING' ? 'generating' : 'idle'
+          }`}>
+            {status === 'VERIFIED' ? 'VERIFIED PLAYABLE' :
+             status === 'FAILED' ? 'VERIFICATION FAILED' :
+             status === 'GENERATING' ? 'GENERATING' : 'IDLE'}
+          </span>
 
           <button className="btn btn-secondary btn-sm" onClick={() => setIsBenchmarkOpen(true)}>
-            BENCHMARK ABLATION
+            Benchmark Ablation
           </button>
         </div>
       </header>
 
-      {/* Main Command Station */}
-      <section className="command-station">
-        <div className="command-bar">
-          <div className="input-wrap">
-            <span className="terminal-prefix">&gt; DESIGN INTENT:</span>
+      {/* 2. Design Intent Station */}
+      <section className="intent-card">
+        <div className="intent-row">
+          <div className="intent-input-wrap">
+            <span className="intent-label-tag">DESIGN INTENT</span>
             <input
               type="text"
               className="intent-input"
@@ -299,7 +294,7 @@ export const App: React.FC = () => {
               onKeyDown={(e) => {
                 if (e.key === 'Enter') void handleGenerate();
               }}
-              placeholder="Specify natural-language level requirements: e.g. 'Build an easy level with one 2-tile gap'..."
+              placeholder="Describe platformer rules: e.g. 'Build an easy level with one 2-tile gap'..."
               disabled={status === 'GENERATING'}
             />
           </div>
@@ -310,28 +305,28 @@ export const App: React.FC = () => {
           >
             {status === 'GENERATING' ? (
               <>
-                <span className="spinner"></span> SYNTHESIZING...
+                <span className="spinner"></span> GENERATING...
               </>
             ) : (
-              'SYNTHESIZE & VERIFY'
+              'GENERATE & VERIFY'
             )}
           </button>
         </div>
 
-        {/* Sample Presets */}
-        <div className="presets-row">
-          <span className="presets-label">SCENARIO PRESETS:</span>
-          {SAMPLE_PROMPTS.map((sp, idx) => (
+        {/* Small, clean presets */}
+        <div className="preset-strip">
+          <span className="preset-title">Presets:</span>
+          {SAMPLE_PROMPTS.map((sp) => (
             <button
               key={sp.label}
-              className="preset-btn"
+              className="preset-chip"
               onClick={() => {
                 setIntent(sp.prompt);
                 void handleGenerate(sp.prompt);
               }}
               disabled={status === 'GENERATING'}
             >
-              [{ (idx + 1).toString().padStart(2, '0') }] {sp.label}
+              {sp.label}
             </button>
           ))}
         </div>
@@ -345,138 +340,134 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Workspace Grid */}
-      <main className="forge-grid">
-        {/* Left Column: Canvas & Timeline */}
-        <section className="canvas-section">
-          <div className="panel canvas-panel">
-            <div className="panel-header">
-              <div className="panel-title">
-                <span>VIEWPORT // DRAFTING PLANE {level ? `(${level.width}×${level.height})` : ''}</span>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                {status && (
-                  <span className={`badge ${
-                    status === 'VERIFIED' ? 'badge-pass' :
-                    status === 'FAILED' ? 'badge-fail' :
-                    status === 'GENERATING' ? 'badge-warn' : 'badge-idle'
-                  }`}>
-                    {status}
-                  </span>
-                )}
-                {latestPatch && (
-                  <span className="badge badge-warn">
-                    PATCH: {latestPatch.operations.length} OPS
-                  </span>
-                )}
-              </div>
+      {/* 3. Main Workspace Grid: Dominant Canvas (Left) + Verification Station (Right) */}
+      <main className="studio-grid">
+        {/* Left Column: Level Viewport (Hero) */}
+        <section className="viewport-card">
+          <div className="viewport-header">
+            <div className="viewport-title">
+              <h2>Level Viewport</h2>
+              <span className="viewport-dimensions">
+                {level ? `(${level.width}×${level.height})` : '(12×8)'}
+              </span>
             </div>
 
-            <div className="canvas-container">
-              <LevelCanvas
-                level={level}
-                verification={verification}
-                latestPatch={latestPatch}
-                playerState={activeTab === 'play' ? playerState : null}
-              />
+            <div className="legend-strip">
+              <span className="legend-item"><span className="legend-dot ground"></span> Ground</span>
+              <span className="legend-item"><span className="legend-dot hazard"></span> Hazard</span>
+              <span className="legend-item"><span className="legend-dot start"></span> Start</span>
+              <span className="legend-item"><span className="legend-dot goal"></span> Goal</span>
             </div>
           </div>
 
-          {/* Repair Timeline */}
-          <div className="panel timeline-panel">
-            <div className="panel-header">
-              <div className="panel-title">
-                <span>CEGIS EXECUTION TRACE</span>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <span className="event-count-badge">{events.length} EVENTS</span>
-                {sessionId && <span className="text-muted" style={{ fontFamily: 'var(--font-mono)', fontSize: 10 }}>ID: {sessionId.slice(0, 10)}</span>}
-              </div>
-            </div>
-            <div className="timeline-container">
-              <RepairTimeline events={events} />
-            </div>
+          <div className="canvas-viewport-wrap">
+            <LevelCanvas
+              level={level}
+              verification={verification}
+              latestPatch={latestPatch}
+              playerState={isPlaying ? playerState : null}
+            />
           </div>
+
+          {/* Interactive Play Mode In-Canvas HUD Overlay */}
+          {isPlaying && (
+            <div className="play-hud-bar">
+              <div className="hud-controls-hint">
+                <span style={{ color: "var(--color-pass)", fontWeight: 700 }}>● PLAYING</span>
+                <span><span className="key-badge">←</span> <span className="key-badge">→</span> Move</span>
+                <span><span className="key-badge">Z</span> Short Jump</span>
+                <span><span className="key-badge">X</span> Long Jump</span>
+                <span><span className="key-badge">Space</span> Wait</span>
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={() => setSecondaryTab('details')}>
+                Exit Play Mode
+              </button>
+            </div>
+          )}
         </section>
 
-        {/* Right Column: Verification & Interactive Diagnostics */}
-        <section className="diagnostics-section">
-          {/* Navigation Tabs */}
-          <div className="tab-bar">
-            <button
-              className={`tab-btn ${activeTab === 'verification' ? 'tab-active' : ''}`}
-              onClick={() => setActiveTab('verification')}
-            >
-              VERIFICATION
-            </button>
-            <button
-              className={`tab-btn ${activeTab === 'constraints' ? 'tab-active' : ''}`}
-              onClick={() => setActiveTab('constraints')}
-            >
-              CONSTRAINTS
-            </button>
-            <button
-              className={`tab-btn ${activeTab === 'sabotage' ? 'tab-active' : ''}`}
-              onClick={() => setActiveTab('sabotage')}
-            >
-              JUDGE SABOTAGE
-            </button>
-            <button
-              className={`tab-btn ${activeTab === 'physics' ? 'tab-active' : ''}`}
-              onClick={() => setActiveTab('physics')}
-            >
-              PHYSICS BENCH
-            </button>
-            <button
-              className={`tab-btn ${activeTab === 'play' ? 'tab-active' : ''} ${!isVerifiedPass ? 'tab-disabled' : ''}`}
-              onClick={() => {
-                if (isVerifiedPass) setActiveTab('play');
-              }}
-              title={!isVerifiedPass ? 'Play Mode unlocks only after level passes machine verification' : 'Play verified level'}
-            >
-              PLAY MODE {!isVerifiedPass && '[LOCKED]'}
-            </button>
-          </div>
+        {/* Right Column: Verification & Interactive Diagnostic Station */}
+        <section className="station-column">
+          {/* Card 1: Core Verification Readout & Primary Action */}
+          <VerificationPanel
+            verification={verification}
+            isRunning={status === 'GENERATING'}
+            onPlay={isVerifiedPass ? () => setSecondaryTab('play') : undefined}
+            onRepair={verification?.status === 'FAILED' ? handleRepairSession : undefined}
+            isRepairing={isRepairing}
+          />
 
-          {/* Tab Panes */}
-          <div className="tab-pane-container">
-            {activeTab === 'verification' && (
-              <VerificationPanel verification={verification} />
-            )}
+          {/* Card 2: Secondary Inspection & Testing Tools */}
+          <div className="secondary-tools-card">
+            <div className="secondary-nav-bar">
+              <button
+                className={`nav-tab-btn ${secondaryTab === 'details' ? 'active' : ''}`}
+                onClick={() => setSecondaryTab('details')}
+              >
+                Constraints
+              </button>
+              <button
+                className={`nav-tab-btn ${secondaryTab === 'sabotage' ? 'active' : ''}`}
+                onClick={() => setSecondaryTab('sabotage')}
+              >
+                Judge Sabotage
+              </button>
+              <button
+                className={`nav-tab-btn ${secondaryTab === 'physics' ? 'active' : ''}`}
+                onClick={() => setSecondaryTab('physics')}
+              >
+                Physics Bench
+              </button>
+              <button
+                className={`nav-tab-btn ${secondaryTab === 'play' ? 'active' : ''}`}
+                onClick={() => {
+                  if (isVerifiedPass) setSecondaryTab('play');
+                }}
+                disabled={!isVerifiedPass}
+                title={!isVerifiedPass ? 'Play Mode unlocks after level passes verification' : 'Play verified level'}
+              >
+                Play Mode {!isVerifiedPass && '(Locked)'}
+              </button>
+            </div>
 
-            {activeTab === 'constraints' && (
-              <ConstraintPanel
-                constraints={levelSpec?.constraints || level?.constraints || null}
-                verification={verification}
-              />
-            )}
+            <div className="secondary-pane-body">
+              {secondaryTab === 'details' && (
+                <ConstraintPanel
+                  constraints={levelSpec?.constraints || level?.constraints || null}
+                  verification={verification}
+                />
+              )}
 
-            {activeTab === 'sabotage' && (
-              <JudgeSabotagePanel
-                onSabotage={handleSabotage}
-                onRepair={handleRepairSession}
-                canRepair={verification?.status === 'FAILED'}
-                disabled={!level}
-              />
-            )}
+              {secondaryTab === 'sabotage' && (
+                <JudgeSabotagePanel
+                  onSabotage={handleSabotage}
+                  onRepair={handleRepairSession}
+                  canRepair={verification?.status === 'FAILED'}
+                  disabled={!level}
+                />
+              )}
 
-            {activeTab === 'physics' && (
-              <PhysicsRegressionPanel
-                onRegressPhysics={handleRegressPhysics}
-                disabled={!level}
-              />
-            )}
+              {secondaryTab === 'physics' && (
+                <PhysicsRegressionPanel
+                  onRegressPhysics={handleRegressPhysics}
+                  disabled={!level}
+                />
+              )}
 
-            {activeTab === 'play' && level && (
-              <PlayMode
-                level={level}
-                isVerifiedPlayable={isVerifiedPass}
-                onPlayerStateChange={setPlayerState}
-              />
-            )}
+              {secondaryTab === 'play' && level && (
+                <PlayMode
+                  level={level}
+                  isVerifiedPlayable={isVerifiedPass}
+                  onPlayerStateChange={setPlayerState}
+                />
+              )}
+            </div>
           </div>
         </section>
       </main>
+
+      {/* 4. Bottom: Horizontal Process Execution Stepper */}
+      <RepairTimeline events={events} />
 
       {/* Benchmark Modal */}
       <BenchmarkPanel

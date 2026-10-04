@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import type { ServerEvent } from "../types.ts";
 
 export interface RepairTimelineProps {
@@ -6,145 +6,136 @@ export interface RepairTimelineProps {
 }
 
 export const RepairTimeline: React.FC<RepairTimelineProps> = ({ events }) => {
+  const [showLog, setShowLog] = useState(false);
+
   if (!events || events.length === 0) {
     return (
-      <div className="canvas-placeholder" style={{ padding: "20px 14px", textAlign: "left" }}>
-        <p className="text-muted" style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>
-          Awaiting CEGIS execution trace. Trigger compilation to view state transitions.
-        </p>
+      <div className="process-stepper-card">
+        <div className="stepper-header">
+          <span className="stepper-title">EXECUTION PIPELINE</span>
+          <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>Awaiting intent to begin</span>
+        </div>
+        <div className="stepper-track">
+          <span className="step-node">01 INTENT</span>
+          <span className="step-arrow">→</span>
+          <span className="step-node">02 GENERATE</span>
+          <span className="step-arrow">→</span>
+          <span className="step-node">03 VERIFY</span>
+          <span className="step-arrow">→</span>
+          <span className="step-node">04 REPAIR</span>
+          <span className="step-arrow">→</span>
+          <span className="step-node">05 PASS</span>
+        </div>
       </div>
     );
   }
 
+  // Derive execution stages from event history
+  const hasIntent = events.some((e) => e.type === "INTENT_RECEIVED" || e.type === "SESSION_STARTED");
+  const hasGenerated = events.some((e) => e.type === "LEVEL_GENERATED");
+  const failedEvents = events.filter(
+    (e) => e.type === "VERIFICATION_COMPLETED" && (e as any).result?.status === "FAILED"
+  );
+  const hasFailed = failedEvents.length > 0;
+  const hasRepair = events.some((e) => e.type === "PATCH_PROPOSED" || e.type === "PATCH_APPLIED" || e.type === "REPAIR_STARTED");
+  const isPass = events.some(
+    (e) =>
+      (e.type === "VERIFICATION_COMPLETED" && (e as any).result?.status === "PASSED") ||
+      (e.type === "SESSION_COMPLETED" && (e as any).success)
+  );
+
   return (
-    <div className="timeline-stream">
-      {events.map((event, index) => {
-        let badgeClass = "badge-neutral";
-        let seq = (index + 1).toString().padStart(2, "0");
-        let title: string = event.type;
-        let details: React.ReactNode = null;
+    <div className="process-stepper-card">
+      <div className="stepper-header">
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span className="stepper-title">EXECUTION PIPELINE</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ink-muted)", background: "var(--bg-surface-subtle)", padding: "1px 6px", borderRadius: 3 }}>
+            {events.length} EVENTS
+          </span>
+        </div>
 
-        switch (event.type) {
-          case "SESSION_STARTED":
-            badgeClass = "badge-cyan";
-            title = "SESSION INITIALIZED";
-            details = <span>ID: <code>{event.sessionId}</code></span>;
-            break;
+        <button
+          onClick={() => setShowLog(!showLog)}
+          style={{
+            background: "transparent",
+            border: "none",
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color: "var(--ink-secondary)",
+            cursor: "pointer",
+          }}
+        >
+          {showLog ? "Hide Event Log ▲" : "Inspect Event Log ▼"}
+        </button>
+      </div>
 
-          case "INTENT_RECEIVED":
-            badgeClass = "badge-cyan";
-            title = "INTENT RECEIVED";
-            details = <span className="intent-quote">"{event.intent}"</span>;
-            break;
+      {/* Horizontal Process Track */}
+      <div className="stepper-track">
+        <span className={`step-node ${hasIntent ? "completed" : ""}`}>
+          01 INTENT
+        </span>
 
-          case "SPEC_GENERATED":
-            badgeClass = "badge-cyan";
-            title = "SPEC_IR GENERATED";
-            details = (
-              <span>
-                {event.spec.platforms.length} Platforms, {event.spec.hazards.length} Hazards | Target: {event.spec.constraints.target_difficulty}
-              </span>
-            );
-            break;
+        <span className="step-arrow">→</span>
 
-          case "LEVEL_GENERATED":
-            badgeClass = "badge-cyan";
-            title = "DISCRETE GRID COMPILED";
-            details = <span>Dimensions: {event.level.width} × {event.level.height}</span>;
-            break;
+        <span className={`step-node ${hasGenerated ? "completed" : hasIntent ? "active" : ""}`}>
+          02 GENERATE
+        </span>
 
-          case "VERIFICATION_STARTED":
-            badgeClass = "badge-neutral";
-            title = `BFS VERIFICATION (${event.phase})`;
-            if (event.attempt) {
-              details = <span>Repair Attempt #{event.attempt}</span>;
-            }
-            break;
+        <span className="step-arrow">→</span>
 
-          case "VERIFICATION_COMPLETED":
-            if (event.result.status === "PASSED") {
-              badgeClass = "badge-pass";
-              title = "VERIFICATION: PASS";
-              details = (
-                <span>
-                  Path Length: {event.result.action_sequence.length} actions ({event.result.metrics.critical_jumps_required} jumps) | Score: {event.result.metrics.difficulty?.score ?? "N/A"}
-                </span>
-              );
-            } else {
-              badgeClass = "badge-fail";
-              title = `VERIFICATION: FAILED (${event.result.counterexample.status})`;
-              details = (
-                <span>
-                  Failure Node: ({event.result.counterexample.failure_node.x}, {event.result.counterexample.failure_node.y}) | {event.result.counterexample.reason}
-                </span>
-              );
-            }
-            break;
+        <span className={`step-node ${hasFailed ? "failed" : isPass ? "completed" : hasGenerated ? "active" : ""}`}>
+          03 VERIFY
+        </span>
 
-          case "REPAIR_STARTED":
-            badgeClass = "badge-warn";
-            title = `AUTONOMOUS REPAIR [ATTEMPT ${event.attempt}/${event.maxAttempts}]`;
-            details = (
-              <span>
-                Counterexample at ({event.counterexample.failure_node.x}, {event.counterexample.failure_node.y}) fed to Surgical Repairer
-              </span>
-            );
-            break;
-
-          case "PATCH_PROPOSED":
-            badgeClass = "badge-warn";
-            title = `PATCH PROPOSED (${event.patch.operations.length} OP)`;
-            details = (
-              <div className="patch-ops-list">
-                {event.patch.operations.map((op, opIdx) => (
-                  <span key={opIdx} className="patch-op-tag">
-                    ({op.x}, {op.y}) → {op.newTile}
-                  </span>
-                ))}
-              </div>
-            );
-            break;
-
-          case "PATCH_APPLIED":
-            badgeClass = "badge-cyan";
-            title = "PATCH APPLIED (IMMUTABLE DELTA)";
-            details = <span>Level state updated. Triggering re-verification.</span>;
-            break;
-
-          case "REPAIR_COMPLETED":
-            badgeClass = event.success ? "badge-pass" : "badge-fail";
-            title = event.success
-              ? "REPAIR SUCCEEDED (RE-VERIFIED PASS)"
-              : `REPAIR EXHAUSTED (${event.attempts} ATTEMPTS)`;
-            break;
-
-          case "SESSION_COMPLETED":
-            badgeClass = event.success ? "badge-pass" : "badge-fail";
-            title = event.success ? "SESSION COMPLETED // VERIFIED" : "SESSION ENDED // UNVERIFIED";
-            break;
-
-          case "ERROR":
-            badgeClass = "badge-fail";
-            title = `SYSTEM ERROR [${event.code}]`;
-            details = <span style={{ color: "var(--color-fail)" }}>{event.message}</span>;
-            break;
-        }
-
-        return (
-          <div key={index} className={`timeline-item ${badgeClass}`}>
-            <span className="timeline-seq">{seq}</span>
-            <span className="timeline-time">
-              {new Date(event.timestamp).toLocaleTimeString()}
+        {hasFailed && (
+          <>
+            <span className="step-arrow">→</span>
+            <span className="step-node failed">
+              04 COUNTEREXAMPLE
             </span>
-            <div className="timeline-content">
-              <div className="timeline-title-row">
-                <span className="timeline-title">{title}</span>
+
+            <span className="step-arrow">→</span>
+            <span className={`step-node ${hasRepair ? "active" : ""}`}>
+              05 REPAIR
+            </span>
+
+            <span className="step-arrow">→</span>
+            <span className={`step-node ${isPass ? "completed" : hasRepair ? "active" : ""}`}>
+              06 RE-VERIFY
+            </span>
+          </>
+        )}
+
+        <span className="step-arrow">→</span>
+
+        <span className={`step-node ${isPass ? "completed" : ""}`}>
+          {hasFailed ? "07" : "04"} PASS
+        </span>
+      </div>
+
+      {/* Expandable Raw Event Stream */}
+      {showLog && (
+        <div className="event-stream-container">
+          {events.map((event, idx) => {
+            let desc = "";
+            if (event.type === "INTENT_RECEIVED") desc = `"${event.intent}"`;
+            else if (event.type === "LEVEL_GENERATED") desc = `Grid ${event.level.width}×${event.level.height}`;
+            else if (event.type === "VERIFICATION_COMPLETED") desc = `${event.result.status} (${event.phase})`;
+            else if (event.type === "PATCH_PROPOSED") desc = `${event.patch.operations.length} operations proposed`;
+            else if (event.type === "PATCH_APPLIED") desc = `Applied ${event.patch.operations.length} operations`;
+            else if (event.type === "SESSION_COMPLETED") desc = event.success ? "Verified Playable" : "Failed";
+            else if (event.type === "ERROR") desc = event.message;
+
+            return (
+              <div key={idx} className="event-log-row">
+                <span className="event-log-step">{(idx + 1).toString().padStart(2, "0")}</span>
+                <span className="event-log-type">{event.type}</span>
+                <span className="event-log-payload">{desc}</span>
               </div>
-              {details && <div className="timeline-details">{details}</div>}
-            </div>
-          </div>
-        );
-      })}
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
