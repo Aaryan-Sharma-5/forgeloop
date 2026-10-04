@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "build:web": "npm run build --prefix web",
+    "build:all": "npm run build && npm run build:web",
+    "start": "npm run build && node --env-file-if-exists=.env dist/src/server/start.js",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node tests/run.mjs && node tests/patches.test.mjs && node tests/constraints.test.mjs && node tests/generator.test.mjs && node tests/repairer.test.mjs && node tests/server.test.mjs"
   },
