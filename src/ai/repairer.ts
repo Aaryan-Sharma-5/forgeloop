@@ -69,6 +69,12 @@ export const REPAIRER_SYSTEM_PROMPT = `You are the ForgeLoop Surgical Level Repa
 4. **Endpoint Protection**: You must NEVER overwrite or move the START or GOAL tiles.
 5. **No Code / No Prose**: Output ONLY a valid JSON object matching the LevelPatch schema. Do not output markdown fences or commentary.
 
+### Physics & Coordinate Rules:
+- The player stands in AIR at row y on top of GROUND platform surfaces at row y + 1. (e.g. if player stands at y=6, the platform below is at y=7).
+- To bridge an uncrossable gap between platforms at row y, place stepping stone GROUND tiles at the platform row y (e.g. y=7), NOT in the walking/jumping air corridor above it (which forms a solid wall and causes a collision).
+- If a jump fails due to collision with an obstacle, replace that obstacle tile with "AIR".
+- If a constraint violation is "min_path_length" or "required_jumps", create an alternate jumping path or stepping platform; never place a solid block directly blocking the player's path.
+
 ### Patch Format
 {
   "operations": [

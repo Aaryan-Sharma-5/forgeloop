@@ -335,6 +335,12 @@ body {
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-subtle);
   overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tab-bar::-webkit-scrollbar {
+  display: none;
 }
 
 .tab-btn {
@@ -345,11 +351,12 @@ body {
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
-  padding: 10px 14px;
+  padding: 10px 10px;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   white-space: nowrap;
   transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
 .tab-btn:hover:not(.tab-disabled) {
@@ -605,3 +612,396 @@ body {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ==========================================================================
+   Canvas Wrapper & Legend
+   ========================================================================== */
+.canvas-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.canvas-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 4px 8px;
+}
+
+.dimension-badge {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 700;
+  color: var(--cyan);
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.legend-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.legend-color.ground {
+  background: #38bdf8;
+  border: 1px solid #1e293b;
+}
+
+.legend-color.hazard {
+  background: #ef4444;
+  border: 1px solid #7f1d1d;
+}
+
+.legend-color.start {
+  background: #22c55e;
+  border-radius: 50%;
+}
+
+.legend-color.goal {
+  background: #eab308;
+  border-radius: 50%;
+}
+
+.patch-highlight-badge {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid var(--amber);
+  color: #fbbf24;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  animation: pulse-glow 2s infinite ease-in-out;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 4px rgba(245, 158, 11, 0.3); }
+  50% { box-shadow: 0 0 10px rgba(245, 158, 11, 0.6); }
+}
+
+.level-canvas {
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  cursor: crosshair;
+}
+
+/* ==========================================================================
+   Verification Panel & Counterexamples
+   ========================================================================== */
+.verification-panel .status-pill {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.pill-pass {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid var(--green);
+  color: #34d399;
+}
+
+.pill-fail {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid var(--red);
+  color: #f87171;
+}
+
+.verification-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.counterexample-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(239, 68, 68, 0.04);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ce-status-badge {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid var(--red);
+  color: #fca5a5;
+  padding: 2px 7px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+
+.ce-reason {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: #f87171;
+  line-height: 1.4;
+}
+
+.violation-box {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px dashed rgba(239, 68, 68, 0.4);
+  border-radius: 4px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.violation-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.violation-label {
+  color: var(--text-muted);
+}
+
+.violation-val {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.violation-val.strong {
+  color: var(--amber);
+}
+
+.violation-val.error {
+  color: var(--red);
+}
+
+.violation-details-text {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin-top: 2px;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.metrics-grid.failure-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.metric-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 4px;
+}
+
+.metric-box.highlight {
+  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.metric-box.error-box {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.metric-box .metric-num {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.metric-box.error-box .metric-num {
+  color: var(--red);
+}
+
+.metric-box .metric-name {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.action-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.action-tag {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+/* ==========================================================================
+   Repair Timeline Stream
+   ========================================================================== */
+.timeline-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.event-count-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-medium);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--text-secondary);
+}
+
+.timeline-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.timeline-item {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--border-bright);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+}
+
+.timeline-item.badge-pass {
+  border-left-color: var(--green);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.timeline-item.badge-fail {
+  border-left-color: var(--red);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.timeline-item.badge-warn {
+  border-left-color: var(--amber);
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.timeline-item.badge-cyan {
+  border-left-color: var(--cyan);
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.timeline-item.badge-info {
+  border-left-color: var(--purple);
+  background: rgba(168, 85, 247, 0.05);
+}
+
+.timeline-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.timeline-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.timeline-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.timeline-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.timeline-details {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.intent-quote {
+  color: var(--cyan);
+  font-style: italic;
+}
+
+.patch-ops-list {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.patch-op-tag {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-medium);
+  color: var(--amber);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.error-text {
+  color: var(--red);
+}
+

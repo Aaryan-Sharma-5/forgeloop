@@ -91,7 +91,7 @@ export const LEVEL_SPEC_JSON_SCHEMA = {
         },
         min_path_length: {
           type: "integer",
-          description: "Minimum total action steps in verified solution",
+          description: "Minimum discrete action steps (MOVE/JUMP) in verified solution. NOT tile distance! Typically 2 to 4.",
           minimum: 1,
         },
         target_difficulty: {

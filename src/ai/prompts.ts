@@ -25,10 +25,20 @@ export const INTENT_COMPILER_SYSTEM_PROMPT = `You are the ForgeLoop Intent Compi
    - Never place START or GOAL inside a platform or inside a hazard.
    - START and GOAL must not be at the same coordinate.
    - Any gap between platforms must be crossable using either JUMP_SHORT (gap <= 1) or JUMP_LONG (gap <= 3), or stepping stones.
-4. **Difficulty Calibration**:
+4. **Difficulty Calibration & Constraints**:
+   - CRITICAL: "min_path_length" is the count of discrete action steps (MOVE/JUMP), NOT horizontal tile distance! In a 12x8 level, an entire level usually takes only 2 to 4 actions.
    - EASY: 1 short jump over a small gap/hazard, low exploration complexity, score <= 34.
+     * required_jumps: 1
+     * min_path_length: 2 or 3 (never > 3 for EASY)
+     * target_difficulty: "EASY"
    - MEDIUM: 2 jumps (e.g., JUMP_SHORT then JUMP_LONG, or stepping stones), score 35-69.
+     * required_jumps: 2
+     * min_path_length: 3 or 4
+     * target_difficulty: "MEDIUM"
    - HARD: 3+ precision jumps, elevated platforms, hazardous chasms, score >= 70.
+     * required_jumps: 3 to 5
+     * min_path_length: 4 to 6
+     * target_difficulty: "HARD"
 5. **Output Format**:
    - You MUST output ONLY valid JSON matching the LevelSpec schema.
    - Do NOT wrap your output in markdown code fences or backticks.
